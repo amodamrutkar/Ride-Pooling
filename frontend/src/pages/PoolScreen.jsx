@@ -25,57 +25,129 @@ export default function PoolScreen({
   const [isLocating, setIsLocating] = useState(false);
   const [locationStatus, setLocationStatus] = useState('');
 
+  // Handle map click to set custom pinpoint pickup
+  const handleMapClick = (latlng) => {
+    if (!latlng) return;
+    const clickLat = Number(latlng.lat.toFixed(6));
+    const clickLon = Number(latlng.lng.toFixed(6));
+
+    // Find nearest landmark for context
+    let nearestHub = NASHIK_HUBS[0];
+    let minDis = 999999;
+    for (const h of NASHIK_HUBS) {
+      const d = Math.hypot((h.lat - clickLat) * 111, (h.lon - clickLon) * 104);
+      if (d < minDis) {
+        minDis = d;
+        nearestHub = h;
+      }
+    }
+    const distM = Math.round(minDis * 1000);
+    const shortDesc = distM < 200 ? nearestHub.shortName : `${distM}m from ${nearestHub.shortName}`;
+
+    const customPinHub = {
+      id: 'user_map_pin',
+      name: `Pinned Pickup (${shortDesc})`,
+      shortName: `Pin · ${shortDesc}`,
+      lat: clickLat,
+      lon: clickLon,
+      accuracy: 5,
+      isLiveGps: true
+    };
+
+    setLiveLocation(customPinHub);
+    setUseLiveLocation(true);
+    setLocationStatus(`📍 Pickup pinned to map near ${nearestHub.shortName}`);
+    setTimeout(() => setLocationStatus(''), 4000);
+  };
+
   const handleFetchLiveLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus('Geolocation is not supported by your browser.');
       return;
     }
     setIsLocating(true);
-    setLocationStatus('Requesting GPS permission...');
+    setLocationStatus('Requesting GPS location permission...');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const lat = Number(pos.coords.latitude.toFixed(6));
-        const lon = Number(pos.coords.longitude.toFixed(6));
+        const rawLat = Number(pos.coords.latitude.toFixed(6));
+        const rawLon = Number(pos.coords.longitude.toFixed(6));
         const accuracy = Math.round(pos.coords.accuracy || 15);
 
-        // Snap to nearest Nashik landmark for clear user context
-        let nearestHub = NASHIK_HUBS[0];
-        let minDis = 999999;
-        for (const h of NASHIK_HUBS) {
-          const d = Math.hypot(h.lat - lat, h.lon - lon);
-          if (d < minDis) {
-            minDis = d;
-            nearestHub = h;
+        // Distance from Nashik Metropolitan City Center (CBS Chowk: 19.9977, 73.7803)
+        const dLat = (rawLat - 19.9977) * 111.0;
+        const dLon = (rawLon - 73.7803) * 104.0;
+        const distFromNashikKm = Math.round(Math.hypot(dLat, dLon));
+
+        // PoolIQ operates exclusively within the Nashik Metropolitan transit network (radius ~28 km)
+        const isWithinNashik = distFromNashikKm <= 28;
+
+        if (isWithinNashik) {
+          // USER IS PHYSICALLY IN NASHIK: Use exact live coordinates
+          let nearestHub = NASHIK_HUBS[0];
+          let minDis = 999999;
+          for (const h of NASHIK_HUBS) {
+            const d = Math.hypot((h.lat - rawLat) * 111, (h.lon - rawLon) * 104);
+            if (d < minDis) {
+              minDis = d;
+              nearestHub = h;
+            }
           }
+          const distM = Math.round(minDis * 1000);
+          const shortDesc = distM < 200 ? nearestHub.shortName : `${distM}m from ${nearestHub.shortName}`;
+
+          const userGpsHub = {
+            id: 'user_live_gps',
+            name: `Live Location (${shortDesc})`,
+            shortName: `Live GPS · ${shortDesc}`,
+            lat: rawLat,
+            lon: rawLon,
+            accuracy,
+            isLiveGps: true,
+            isWithinService: true
+          };
+
+          setLiveLocation(userGpsHub);
+          setUseLiveLocation(true);
+          setIsLocating(false);
+          setLocationStatus(`📍 Live GPS locked in Nashik (±${accuracy}m accuracy)`);
+          setTimeout(() => setLocationStatus(''), 4500);
+        } else {
+          // USER IS OUTSIDE NASHIK (e.g. testing from Delhi, Mumbai, or remote dev environment)
+          // Snap gracefully to a valid Nashik Metro pickup node so the route and app function properly
+          const fallbackHub = NASHIK_HUBS[originIndex] || NASHIK_HUBS[0];
+          const snappedLat = Number((fallbackHub.lat + 0.0014).toFixed(6));
+          const snappedLon = Number((fallbackHub.lon + 0.0018).toFixed(6));
+
+          const userGpsHub = {
+            id: 'user_live_gps_snapped',
+            name: `Nashik Metro Pickup · near ${fallbackHub.shortName}`,
+            shortName: `Live Pickup · ${fallbackHub.shortName}`,
+            lat: snappedLat,
+            lon: snappedLon,
+            accuracy: 10,
+            isLiveGps: true,
+            isSimulated: true
+          };
+
+          setLiveLocation(userGpsHub);
+          setUseLiveLocation(true);
+          setIsLocating(false);
+          setLocationStatus(
+            `📍 Device GPS detected ${distFromNashikKm} km outside Nashik. Snapped to Nashik Metro (${fallbackHub.shortName}). Tap map to fine-tune.`
+          );
         }
-
-        const userGpsHub = {
-          id: 'user_live_gps',
-          name: `Current Location (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
-          shortName: `Live GPS · near ${nearestHub.shortName}`,
-          lat,
-          lon,
-          accuracy,
-          isLiveGps: true
-        };
-
-        setLiveLocation(userGpsHub);
-        setUseLiveLocation(true);
-        setIsLocating(false);
-        setLocationStatus(`GPS Locked (±${accuracy}m)`);
-        setTimeout(() => setLocationStatus(''), 4500);
       },
       (err) => {
         console.warn('Geolocation error:', err);
         setIsLocating(false);
         if (err.code === 1) {
-          setLocationStatus('Location permission denied. Please allow location access.');
+          setLocationStatus('Location permission denied. Please allow location access or choose a hub.');
         } else if (err.code === 2) {
-          setLocationStatus('GPS position unavailable.');
+          setLocationStatus('GPS position unavailable. Switched to preset hubs.');
         } else if (err.code === 3) {
           setLocationStatus('GPS request timed out. Retrying...');
         } else {
-          setLocationStatus('Could not acquire GPS position.');
+          setLocationStatus('Could not determine current location.');
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
@@ -393,7 +465,15 @@ export default function PoolScreen({
               diffPolyline={diffPolyline}
               diffMode={diffMode}
               height="310px"
+              onMapClick={handleMapClick}
             />
+            {/* Interactive Tap Guide */}
+            <div className="absolute bottom-2 left-3 bg-[#FAF9F6]/95 backdrop-blur-md px-2.5 py-1 rounded-md border border-[#DCDAD4] shadow-xs z-[400] flex items-center gap-1.5 pointer-events-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#52584A] animate-pulse"></span>
+              <span className="font-mono text-[9px] text-[#292B29] font-bold uppercase tracking-wider">
+                Tap anywhere on map to pin custom pickup
+              </span>
+            </div>
           </div>
 
           {/* Trip Metric & Summary Card */}
