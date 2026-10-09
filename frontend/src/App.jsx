@@ -114,7 +114,7 @@ export default function App() {
     if (activeTab === 'routes') return 'Corridor Network';
     if (activeTab === 'stats') return 'Efficiency Hub';
     if (activeTab === 'fleet') return 'Fleet Telemetry';
-    return 'poolIQ';
+    return 'pool-IQ';
   };
 
   const handleHeaderBack = () => {

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
  * poolIQ Header with Muted Aesthetic & Profile Role Switcher (Passenger vs Admin)
  */
 export default function Header({
-  title = "poolIQ",
+  title = "pool-IQ",
   showBack = false,
   onBack = null,
   onTuneClick = null,
@@ -34,39 +34,30 @@ export default function Header({
     <header className="fixed top-0 inset-x-0 z-50 bg-[#FAF9F6]/90 backdrop-blur-md border-b border-[#DCDAD4] shadow-xs pt-safe">
       <div className="h-14 px-4 flex items-center justify-between max-w-5xl mx-auto">
         {/* Brand & Left Navigation */}
-        <div className="flex items-center gap-2.5">
-          {showBack ? (
+        <div className="flex items-center gap-2">
+          {showBack && (
             <button
               onClick={onBack}
-              className="w-9 h-9 -ml-1 flex items-center justify-center rounded-xl text-[#292B29] hover:bg-[#EAE8E3] transition-colors cursor-pointer"
+              className="w-8 h-8 -ml-1 mr-1 flex items-center justify-center rounded-xl text-[#292B29] hover:bg-[#EAE8E3] transition-colors cursor-pointer"
               aria-label="Back"
             >
               <span className="material-symbols-outlined text-[20px]">arrow_back</span>
             </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#EAE8E3] text-[#52584A] border border-[#DCDAD4]">
-                <span className="material-symbols-outlined text-[19px]">route</span>
-              </span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="font-sans font-bold text-base tracking-tight text-[#292B29]">
-                  poolIQ
-                </span>
-                <span className="text-[10px] font-mono tracking-wider uppercase text-[#898B84] hidden sm:inline">
-                  {userRole === 'admin' ? 'Dispatcher Pro' : 'Urban Pooling'}
-                </span>
-              </div>
-            </div>
           )}
 
-          {/* Current Page Title (if not on home) */}
-          {title && title !== 'poolIQ' && (
-            <div className="flex items-center gap-1.5 pl-2 border-l border-[#DCDAD4] ml-1">
-              <span className="font-mono text-xs uppercase tracking-wider text-[#686B66] font-semibold truncate max-w-[140px] sm:max-w-[200px]">
-                {title}
+          <div className="flex items-center gap-2">
+            <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#EAE8E3] text-[#52584A] border border-[#DCDAD4]">
+              <span className="material-symbols-outlined text-[19px]">route</span>
+            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-sans font-bold text-base tracking-tight text-[#292B29]">
+                pool-IQ
+              </span>
+              <span className="text-[10px] font-mono tracking-wider uppercase text-[#898B84] hidden sm:inline">
+                {userRole === 'admin' ? 'Dispatcher Pro' : 'Urban Pooling'}
               </span>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Right Controls: Role Badge, Engine Status, Tune & Profile */}
