@@ -51,9 +51,15 @@
 - [x] **Feature A: GPS Integrity & Location Fraud Detection** (`backend/engine/telemetry/gps_integrity.py`): Configurable checks for impossible speed, teleportation, road mismatch, timestamp manipulation, and repeated anomalies with quarantine retention.
 - [x] **Feature B: Configurable Distance-Aware Ride Pooling** (`backend/engine/dispatch/`): Bounded adaptive candidate search, short-trip pooling eligibility with detour slack protection, min/max trip distance validation.
 - [x] **Feature C: Traffic-Aware ETA & Driver Lateness** (`backend/engine/routing/`): Separated independent ETAs, traffic multiplier scenarios (Normal, Fast, Moderate, Severe 50% delay, Sudden Slowdown), high-delay operational warnings.
-- [x] **Feature D: Complete Frontend Rebuild & Leaflet Dark Maps**: Rebuilt from scratch per `stitch_pooliq_ride_pooling_app_ui.zip` and `DESIGN.md`. Leaflet maps integrated on every view (Request, Matching Queue radar, Active Ride tracking, Routes corridor network, Fleet spatial cluster).
-- [x] **Feature E: Full-Stack UI/UX Wiring Audit** (`docs/ui-backend-audit.md`): 30+ interactive UI elements mapped to backend endpoints, handlers, state mutations, and test verifications.
-- [x] **Full Test Suite & E2E Verification**: 117/117 tests passing (`pytest backend/tests/ -v`).
+- [x] **Feature D: Complete Frontend Rebuild & Leaflet Dark Maps**: Rebuilt from scratch per `stitch_pooliq_ride_pooling_app_ui.zip` and `DESIGN.md`. Leaflet maps integrated on every view with ESRI Dark Gray Canvas base & reference layers (zero watermarks).
+- [x] **Turn-by-Turn Road Routing (`utils/routing.js`)**: Real OSRM driving routes following Nashik streets, curves, and bridges just like Google Maps.
+- [x] **USP 1: Zero-Trust Route Gate (`components/ZeroTrustGate.jsx`)**: Hero UI asserting *"THE OPTIMIZER PROPOSES. AN INDEPENDENT VALIDATOR DECIDES."* with 5 invariant checks and dominant COMMITTED / DEFERRED / REJECTED verdict.
+- [x] **USP 2: Explainable Dynamic Re-Pooling (`components/RouteDiffView.jsx`)**: Connected to `/api/diff/{request_id}` showing BEFORE vs INCOMING R2 vs AFTER re-optimization with UNCHANGED, ADDED, REORDERED tags and passenger fairness audit.
+- [x] **Dynamic Corridors & Fleet Maps**: Clicking any corridor card focuses and traces that corridor; clicking any fleet vehicle centers map on that vehicle with live telemetry and radar aura.
+- [x] **Efficiency Hub in Lakhs (₹)**: Scaled network savings in Lakhs (₹3.84L / ₹28.65L) with live ticking telemetry and interactive 7-day velocity chart.
+- [x] **Production Deployment Ready & Pushed to Main**: `render.yaml` for backend, `vercel.json` for frontend, CORS configured for `*.vercel.app`, and pushed to GitHub `main` branch.
+- [x] **Feature E: Full-Stack UI/UX Wiring Audit** (`docs/ui-backend-audit.md`): Traceability matrix for all interactive elements.
+- [x] **Full Test Suite & E2E Verification**: 117/117 tests passing (`pytest backend/tests/ -v`), clean `npm run build` in <500ms.
 
 
 ## Spandan (Optimization Core Lead)
