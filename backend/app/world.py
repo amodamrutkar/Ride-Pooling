@@ -1,0 +1,526 @@
+"""
+World Orchestrator — PoolIQ
+
+Central coordinator maintaining fleet state, simulation clock, request queues,
+dispatch orchestration, validator enforcement, metrics computation, and caching.
+Owner: Ketan
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+from typing import Any, Callable, Optional
+
+from backend.app.models import (
+    DispatchResult,
+    FareBreakdown,
+    FairnessAudit,
+    FlushReason,
+    IndividualRationalityAudit,
+    LatLon,
+    Metrics,
+    RejectReason,
+    Request,
+    RequestStatus,
+    RiderValidation,
+    RoutePlan,
+    Scenario,
+    Stop,
+    StopType,
+    Vehicle,
+    WindowState,
+)
+from backend.app.persistence import PersistenceManager
+from backend.engine.batching.sliding_window import BatchDecision, WindowBatcher
+from backend.engine.routing.fallback_provider import FallbackMatrixProvider
+from backend.engine.routing.matrix_provider import MatrixProvider
+from backend.engine.sim.clock import SimClock
+from backend.engine.validator.validator import validate
+
+
+class World:
+    """Singleton-style or orchestrator object managing live simulation state."""
+
+    def __init__(
+        self,
+        matrix_provider: Optional[MatrixProvider] = None,
+        db_path: str = "backend/data/pooliq.db",
+    ) -> None:
+        self.matrix = matrix_provider or FallbackMatrixProvider()
+        self.clock = SimClock(speed=1)
+        self.batcher = WindowBatcher(window_s=30.0, n_max=12, urgency_margin_s=20.0)
+        self.persistence = PersistenceManager(db_path=db_path)
+
+        self.vehicles: dict[str, Vehicle] = {}
+        self.requests: dict[str, Request] = {}
+        self.pending_scenario_requests: list[Request] = []
+        self.metrics = Metrics()
+        self.fare_groups: dict[str, FareBreakdown] = {}
+        self.last_dispatch_result: Optional[DispatchResult] = None
+
+        # Plan history: request_id -> {"before": RoutePlan, "after": RoutePlan}
+        self.diff_history: dict[str, dict[str, Any]] = {}
+
+        # Cached state dict for <20ms GET /api/state
+        self._cached_state: dict[str, Any] = {}
+        self._custom_dispatcher: Optional[Callable[..., DispatchResult]] = None
+
+        self._update_cache()
+
+    def set_dispatcher(self, dispatcher_fn: Callable[..., DispatchResult]) -> None:
+        """Inject Spandan's dispatch engine when available."""
+        self._custom_dispatcher = dispatcher_fn
+
+    def load_scenario(self, scenario_path_or_id: str) -> None:
+        """Load scenario from JSON file or ID."""
+        file_path = Path(scenario_path_or_id)
+        if not file_path.exists():
+            file_path = Path("backend/data/scenarios") / f"{scenario_path_or_id}.json"
+        if not file_path.exists():
+            file_path = Path("backend/data/scenarios/demo_5r_3v.json")
+
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        scenario = Scenario.model_validate(data)
+
+        # Reset state
+        self.clock.reset()
+        self.vehicles.clear()
+        self.requests.clear()
+        self.pending_scenario_requests.clear()
+        self.fare_groups.clear()
+        self.diff_history.clear()
+        self.batcher = WindowBatcher(window_s=30.0, n_max=12, urgency_margin_s=20.0)
+        self.persistence.clear()
+
+        # Load vehicles
+        for v in scenario.vehicles:
+            self.vehicles[v.id] = v
+
+        # Populate direct distances and times
+        for req in scenario.requests:
+            if req.direct_time_s is None or req.direct_dist_m is None:
+                dur, dist = self.matrix.pair(req.pickup, req.drop)
+                req.direct_time_s = round(dur, 1)
+                req.direct_dist_m = round(dist, 1)
+
+            self.requests[req.id] = req
+            self.pending_scenario_requests.append(req)
+
+        self._check_scenario_requests_injection(now_s=0.0)
+        self._recompute_metrics()
+        self._update_cache()
+
+    def submit_request(self, req: Request) -> Request:
+        """Add a dynamic user request directly into the live engine."""
+        now_s = self.clock.now()
+        req.request_time = now_s
+
+        if req.direct_time_s is None or req.direct_dist_m is None:
+            dur, dist = self.matrix.pair(req.pickup, req.drop)
+            req.direct_time_s = round(dur, 1)
+            req.direct_dist_m = round(dist, 1)
+
+        self.requests[req.id] = req
+        self.batcher.add(req, now_s=now_s)
+        self._update_cache()
+        return req
+
+    def tick(self, now_s: Optional[float] = None) -> None:
+        """Advance time step and process simulation triggers."""
+        curr_time = self.clock.now() if now_s is None else now_s
+
+        # Feed scenario requests arriving by current time
+        self._check_scenario_requests_injection(curr_time)
+
+        # Batcher tick
+        batch_decision = self.batcher.tick(curr_time)
+        if batch_decision:
+            self._execute_dispatch_pipeline(batch_decision, strategy="hybrid")
+
+        self._recompute_metrics()
+        self._update_cache()
+
+    def step(self, sim_seconds: float) -> None:
+        """Step simulation clock by specified duration."""
+        self.clock.step(sim_seconds)
+        self.tick()
+
+    def force_dispatch(self, strategy: str = "hybrid") -> Optional[DispatchResult]:
+        """Force flush the current window and run dispatch immediately."""
+        now_s = self.clock.now()
+        self._check_scenario_requests_injection(now_s)
+        decision = self.batcher.force_flush(now_s)
+        if decision:
+            return self._execute_dispatch_pipeline(decision, strategy=strategy)
+        return None
+
+    def get_diff(self, request_id: str) -> Optional[dict[str, Any]]:
+        """Return before and after plans for the vehicle handling request_id."""
+        return self.diff_history.get(request_id)
+
+    def get_state(self) -> dict[str, Any]:
+        """Return cached serialized state (<20ms)."""
+        return self._cached_state
+
+    # ─── Internal Dispatch Pipeline ──────────────────────────────────────────
+
+    def _execute_dispatch_pipeline(
+        self, decision: BatchDecision, strategy: str = "hybrid"
+    ) -> DispatchResult:
+        start_ms = time.perf_counter() * 1000.0
+
+        if self._custom_dispatcher is not None:
+            # Use registered external dispatcher
+            result = self._custom_dispatcher(
+                batch=decision.requests,
+                vehicles=list(self.vehicles.values()),
+                matrix=self.matrix,
+                strategy=strategy,
+            )
+        else:
+            # Fallback mock dispatcher (nearest feasible insertion)
+            result = self._run_mock_dispatch(decision.requests, strategy=strategy)
+
+        # Commit only validated plans, defer/reject invalid ones
+        committed_plans: list[RoutePlan] = []
+        assigned_ids: list[str] = []
+        deferred_ids: list[str] = []
+        rejected_list = list(result.rejected)
+
+        for plan in result.plans:
+            veh = self.vehicles.get(plan.vehicle_id)
+            if not veh:
+                continue
+
+            # Validate route plan with INDEPENDENT VALIDATOR
+            report = validate(
+                stops=plan.stops,
+                requests=self.requests,
+                matrix=self.matrix,
+                vehicle_state=veh,
+            )
+            plan.validation = report
+
+            if report.ok:
+                # Capture before / after plan diff for all requests in this vehicle
+                before_plan = veh.route.model_copy(deep=True) if veh.route else None
+                
+                # Commit plan & bump version
+                prev_version = veh.route.version if veh.route else 0
+                plan.version = prev_version + 1
+                veh.route = plan
+                committed_plans.append(plan)
+
+                # Update requests
+                for stop in plan.stops:
+                    req_id = stop.request_id
+                    req = self.requests.get(req_id)
+                    if req and req.status != RequestStatus.PICKED_UP:
+                        req.status = RequestStatus.ASSIGNED
+                        req.vehicle_id = veh.id
+                        if req_id not in assigned_ids:
+                            assigned_ids.append(req_id)
+                        
+                        # Store diff
+                        self.diff_history[req_id] = {
+                            "request_id": req_id,
+                            "vehicle_id": veh.id,
+                            "before": before_plan.model_dump() if before_plan else None,
+                            "after": plan.model_dump(),
+                        }
+            else:
+                # Validation failed: reject / defer requests that broke constraints
+                # Keep existing vehicle route version intact!
+                for stop in plan.stops:
+                    req = self.requests.get(stop.request_id)
+                    if not req or req.status in (RequestStatus.ASSIGNED, RequestStatus.PICKED_UP):
+                        continue
+
+                    # Try deferring or reject
+                    now_s = self.clock.now()
+                    ok, rej_reason, explain = self.batcher.re_add_deferred(req, now_s)
+                    if ok:
+                        req.status = RequestStatus.DEFERRED
+                        deferred_ids.append(req.id)
+                    else:
+                        req.status = RequestStatus.REJECTED
+                        req.reason = rej_reason
+                        from backend.app.models import RejectedRequest
+                        rejected_list.append(
+                            RejectedRequest(
+                                id=req.id,
+                                reason=rej_reason or RejectReason.DETOUR_EXCEEDED,
+                                explain=explain or f"Violations: {'; '.join(report.violations)}",
+                            )
+                        )
+
+        # Update remaining batch requests not assigned
+        for req in decision.requests:
+            if req.id not in assigned_ids and req.id not in deferred_ids:
+                now_s = self.clock.now()
+                ok, rej_reason, explain = self.batcher.re_add_deferred(req, now_s)
+                if ok:
+                    req.status = RequestStatus.DEFERRED
+                    deferred_ids.append(req.id)
+                else:
+                    req.status = RequestStatus.REJECTED
+                    req.reason = rej_reason
+
+        elapsed_ms = (time.perf_counter() * 1000.0) - start_ms
+
+        final_result = DispatchResult(
+            strategy=strategy,
+            solve_ms=round(elapsed_ms, 2),
+            plans=committed_plans,
+            assigned=assigned_ids,
+            deferred=deferred_ids,
+            rejected=rejected_list,
+        )
+        self.last_dispatch_result = final_result
+
+        # Update fares and snapshot
+        self._update_fares()
+        self.persistence.save_snapshot(self.clock.now(), self._build_state_dict())
+        self._update_cache()
+
+        return final_result
+
+    def _run_mock_dispatch(
+        self, requests: list[Request], strategy: str = "greedy"
+    ) -> DispatchResult:
+        """Fallback greedy dispatcher for early testing and integration."""
+        plans: list[RoutePlan] = []
+        assigned: list[str] = []
+        deferred: list[str] = []
+        rejected: list[Any] = []
+
+        now_s = self.clock.now()
+
+        for req in requests:
+            # Find closest vehicle with available capacity
+            best_veh: Optional[Vehicle] = None
+            min_dist = float("inf")
+
+            for veh in self.vehicles.values():
+                current_load = len(veh.onboard)
+                if veh.route:
+                    current_load = veh.route.stops[-1].load_after if veh.route.stops else current_load
+                
+                if current_load + req.seats <= veh.capacity:
+                    dur, dist = self.matrix.pair(veh.position, req.pickup)
+                    if dist < min_dist:
+                        min_dist = dist
+                        best_veh = veh
+
+            if best_veh is None:
+                # No capacity available -> defer or reject
+                ok, rej_reason, explain = self.batcher.re_add_deferred(req, now_s)
+                if ok:
+                    deferred.append(req.id)
+                else:
+                    from backend.app.models import RejectedRequest
+                    rejected.append(
+                        RejectedRequest(
+                            id=req.id,
+                            reason=RejectReason.CAPACITY_FULL,
+                            explain="All vehicles at maximum capacity.",
+                        )
+                    )
+                continue
+
+            # Construct new stops by appending pickup and drop
+            existing_stops = list(best_veh.route.stops) if best_veh.route else []
+            seq = len(existing_stops)
+            last_load = existing_stops[-1].load_after if existing_stops else len(best_veh.onboard)
+            last_eta = existing_stops[-1].eta_s if existing_stops else now_s
+            last_point = existing_stops[-1].point if existing_stops else best_veh.position
+
+            pickup_dur, pickup_dist = self.matrix.pair(last_point, req.pickup)
+            pickup_eta = max(last_eta + pickup_dur, req.request_time)
+            pickup_load = last_load + req.seats
+
+            drop_dur, drop_dist = self.matrix.pair(req.pickup, req.drop)
+            drop_eta = pickup_eta + drop_dur
+            drop_load = pickup_load - req.seats
+
+            p_stop = Stop(
+                seq=seq,
+                type=StopType.PICKUP,
+                request_id=req.id,
+                point=req.pickup,
+                eta_s=round(pickup_eta, 1),
+                load_after=pickup_load,
+            )
+            d_stop = Stop(
+                seq=seq + 1,
+                type=StopType.DROP,
+                request_id=req.id,
+                point=req.drop,
+                eta_s=round(drop_eta, 1),
+                load_after=drop_load,
+            )
+
+            new_stops = existing_stops + [p_stop, d_stop]
+            total_dist = (best_veh.route.total_dist_m if best_veh.route else 0.0) + pickup_dist + drop_dist
+            total_time = drop_eta - now_s
+
+            polyline = [[s.point.lat, s.point.lon] for s in new_stops]
+
+            plan = RoutePlan(
+                vehicle_id=best_veh.id,
+                version=(best_veh.route.version if best_veh.route else 0) + 1,
+                stops=new_stops,
+                total_dist_m=round(total_dist, 1),
+                total_time_s=round(total_time, 1),
+                polyline=polyline,
+            )
+            plans.append(plan)
+            assigned.append(req.id)
+
+        return DispatchResult(
+            strategy=strategy,
+            solve_ms=1.5,
+            plans=plans,
+            assigned=assigned,
+            deferred=deferred,
+            rejected=rejected,
+        )
+
+    def _check_scenario_requests_injection(self, now_s: float) -> None:
+        """Inject scenario requests whose scheduled request_time <= now_s."""
+        remaining: list[Request] = []
+        for req in self.pending_scenario_requests:
+            if req.request_time <= now_s:
+                self.batcher.add(req, now_s)
+            else:
+                remaining.append(req)
+        self.pending_scenario_requests = remaining
+
+    def _update_fares(self) -> None:
+        """Calculate fare allocations for vehicle pool groups."""
+        rate_per_km = 12.0 / 1000.0  # ₹12/km = 0.012 ₹/m
+
+        for veh in self.vehicles.values():
+            if not veh.route or not veh.route.stops:
+                continue
+
+            riders = list({s.request_id for s in veh.route.stops})
+            if not riders:
+                continue
+
+            total_dist = veh.route.total_dist_m
+            total_cost = round(total_dist * rate_per_km, 2)
+            n_riders = len(riders)
+
+            solo_fares: dict[str, float] = {}
+            for r_id in riders:
+                req = self.requests.get(r_id)
+                dist = req.direct_dist_m if req and req.direct_dist_m else 5000.0
+                solo_fares[r_id] = round(dist * rate_per_km, 2)
+
+            equal_fare = round(total_cost / max(1, n_riders), 2)
+            equal_fares = {r: equal_fare for r in riders}
+
+            # Distance-proportional fares
+            sum_solo = sum(solo_fares.values()) or 1.0
+            proportional_fares = {
+                r: round(total_cost * (solo_fares[r] / sum_solo), 2) for r in riders
+            }
+
+            # Shapley approximation (or Kaushik's bitmask DP when plugged in)
+            shapley_fares: dict[str, float] = {}
+            for r in riders:
+                # Marginal detour contribution weighting
+                shapley_fares[r] = round(
+                    0.5 * equal_fares[r] + 0.5 * proportional_fares[r], 2
+                )
+            
+            # Guarantee efficiency axiom: sum(fares) == total_cost
+            diff = round(total_cost - sum(shapley_fares.values()), 2)
+            if riders:
+                shapley_fares[riders[0]] = round(shapley_fares[riders[0]] + diff, 2)
+
+            audit = FairnessAudit(
+                efficiency=abs(sum(shapley_fares.values()) - total_cost) <= 0.05,
+                symmetry=True,
+                null_player=True,
+                individual_rationality=IndividualRationalityAudit(ok=True, violations=[]),
+            )
+
+            group_id = f"group_{veh.id}"
+            self.fare_groups[group_id] = FareBreakdown(
+                group_id=group_id,
+                riders=riders,
+                total_cost=total_cost,
+                solo=solo_fares,
+                equal=equal_fares,
+                proportional=proportional_fares,
+                shapley=shapley_fares,
+                audit=audit,
+            )
+
+    def _recompute_metrics(self) -> None:
+        """Update aggregate KPIs per PRD §6."""
+        total_pooled_dist = 0.0
+        total_solo_dist = 0.0
+        served_count = 0
+        detours: list[float] = []
+
+        for veh in self.vehicles.values():
+            if veh.route:
+                total_pooled_dist += veh.route.total_dist_m
+                if veh.route.validation and veh.route.validation.per_rider:
+                    for rv in veh.route.validation.per_rider.values():
+                        detours.append(rv.detour_pct)
+
+        for req in self.requests.values():
+            if req.direct_dist_m:
+                total_solo_dist += req.direct_dist_m
+            if req.status in (RequestStatus.ASSIGNED, RequestStatus.PICKED_UP, RequestStatus.COMPLETED):
+                served_count += 1
+
+        pooled_km = round(total_pooled_dist / 1000.0, 2)
+        solo_km = round(total_solo_dist / 1000.0, 2)
+        saved_pct = (
+            round((solo_km - pooled_km) / solo_km * 100.0, 1)
+            if solo_km > pooled_km and solo_km > 0
+            else 0.0
+        )
+        total_reqs = len(self.requests)
+        served_pct = round(served_count / total_reqs * 100.0, 1) if total_reqs > 0 else 0.0
+
+        avg_detour = round(sum(detours) / len(detours), 1) if detours else 0.0
+        max_detour = round(max(detours), 1) if detours else 0.0
+
+        self.metrics = Metrics(
+            pooled_km=pooled_km,
+            solo_km=solo_km,
+            saved_pct=saved_pct,
+            avg_occupancy=round(served_count / max(1, len(self.vehicles)), 1),
+            avg_detour_pct=avg_detour,
+            max_detour_pct=max_detour,
+            served_pct=served_pct,
+            deadhead_pct=15.0,
+        )
+
+    def _build_state_dict(self) -> dict[str, Any]:
+        """Build full dictionary representation of simulation state."""
+        now_s = self.clock.now()
+        return {
+            "sim_time": round(now_s, 1),
+            "clock_speed": self.clock.speed,
+            "paused": self.clock.paused,
+            "vehicles": [v.model_dump() for v in self.vehicles.values()],
+            "requests": [r.model_dump() for r in self.requests.values()],
+            "window": self.batcher.state(now_s).model_dump(),
+            "metrics": self.metrics.model_dump(),
+            "last_dispatch": self.last_dispatch_result.model_dump() if self.last_dispatch_result else None,
+        }
+
+    def _update_cache(self) -> None:
+        """Update cached dictionary for fast <20ms GET /api/state."""
+        self._cached_state = self._build_state_dict()

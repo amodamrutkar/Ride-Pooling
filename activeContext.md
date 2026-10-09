@@ -125,38 +125,20 @@ poolIQ/
 
 ---
 
-## Kaushik (Fair Pricing, Metrics, Research & Pitch Lead)
+## Ketan (Backend Platform, Batcher, Validator & Security Lead)
 
-### Current Prompt / Objective
-Implement the cooperative game-theoretic Shapley pricing engine, baseline splits, live fairness audit, KPI metrics engine, and pitch/research assets for PoolIQ in pure Python 3.11+.
+### Current Objective
+Deliver the platform spine of PoolIQ: independent zero-trust constraint validator, adaptive sliding-window batcher, FastAPI endpoints per PRD §6, World state orchestrator with before/after route diffs, SQLite snapshots, and defense-in-depth security hardening.
 
 ### Tech Decisions & Architecture
-- **Shapley Characteristic Coalition Function $v(S)$:**
-  - Bitmask DP formulation over precedence-valid stop orderings (capacity respected, start at first pickup, end at last drop).
-  - Precedence constraint: drop stop for rider $j$ only visited if pickup stop $j$ was already visited.
-  - Capacity constraint: onboard passenger count $\le$ vehicle capacity (default 4) at every visited stop.
-- **Exact & Sampled Computation:**
-  - $n \le 5$: Classical exact permutation Shapley formula ($O(n \cdot 2^{n-1})$).
-  - $n > 5$: Seeded Monte-Carlo permutation sampling (2,000 permutations) computing marginal contributions with empirical variance and 95% confidence intervals.
-  - Exact reconciliation: Total fares calibrated to executed group route cost $v(N)$ to satisfy the efficiency axiom to the exact paisa.
-- **Baseline Allocations:** Solo unpooled trip costs, equal split ($v(N)/n$), distance-proportional split.
-- **Fairness Audit:** Pure functional validator auditing efficiency, symmetry, null player, and individual rationality ($\phi_i \le v(\{i\})$).
-- **KPI Metrics:** Distance-weighted average passenger occupancy, total pooled km vs solo km, saved %, empty vehicle deadhead %, average & maximum detour %, and request service rates.
-- **Pitch Materials:** Complete 2-minute demo script, 6-slide deck outline, 15 judge Q&A guide, and a research note on LOUD & KaRRi.
-
-### Features Implemented
-1. `backend/engine/pricing/shapley.py`: Bitmask DP, exact Shapley, Monte-Carlo Shapley, and `compute_fares`.
-2. `backend/engine/pricing/baselines.py`: `solo_fares`, `equal_split`, `distance_proportional_split`.
-3. `backend/engine/pricing/audit.py`: `run_fairness_audit` with `FairnessAudit` Pydantic model.
-4. `backend/engine/metrics/metrics.py`: `compute_metrics` with `Metrics` Pydantic model.
-5. `backend/tests/test_pricing.py`: 7 required unit and property tests.
-6. `backend/tests/test_metrics.py`: Operational KPI unit tests.
-7. `docs/pitch/demo_script.md`: 2-minute pitch script.
-8. `docs/pitch/deck_outline.md`: 6-slide deck outline.
-9. `docs/pitch/loud_research_note.md`: Research note on LOUD vs LOUD-inspired.
-10. `docs/qa.md`: 15 comprehensive judge questions & answers.
-
-### Future Scope
-- Integration with live OSRM matrix in `/api/fares/{group_id}` endpoint.
-- Interactive visualization of the Shapley coalition tree in the React frontend.
-
+- **Independent Validator (`backend/engine/validator/validator.py`):** Pure functional validator completely decoupled from routing/dispatch/optimization libraries. Enforces precedence, vehicle capacity at every stop, pickup arrival windows, and the strict 15% maximum detour rule. Computes per-rider detour % and wait times.
+- **Sliding-Window Batcher (`backend/engine/batching/sliding_window.py`):** Injected-clock state machine supporting TIMER (30s), SIZE (12 requests), and URGENCY flushes (pickup deadline proximity). Includes defer-then-reject rolling horizon logic.
+- **World Orchestrator (`backend/app/world.py`):** Single point of state coordination. Routes are only committed to vehicles if the independent validator passes; if invalid, route versions stay frozen and violating requests are deferred or rejected with clear reason codes.
+- **FastAPI REST Spine (`backend/app/routes.py`, `backend/app/main.py`):**
+  - High speed `/api/state` endpoint (<20ms response time via in-memory pre-serialized state cache).
+  - Admin endpoints (`/api/scenarios/*/load`, `/api/sim/control`) protected via Bearer token.
+  - Geo-fenced input schema bounded to Nashik coordinates [19.8-20.2 lat, 73.6-74.0 lon].
+  - Security headers middleware and rate limiting.
+  - Diff tracking via `/api/diff/{request_id}`.
+- **OpenAPI Documentation:** Auto-exported to `docs/openapi.json`.
+- **Security Documentation:** `docs/security.md` containing threat model matrix and operational guidance.

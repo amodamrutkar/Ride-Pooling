@@ -1,0 +1,888 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PoolIQ",
+    "description": "Explainable Ride-Pooling Dispatch Engine \u2014 Algorithmic Transit & Fair Fare Allocation",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health",
+        "description": "Liveness check + road-data mode indicator.",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Health Api Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenarios/{scenario_id}/load": {
+      "post": {
+        "summary": "Load Scenario",
+        "description": "Load a seeded scenario and reset the simulation state.",
+        "operationId": "load_scenario_api_scenarios__scenario_id__load_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Load Scenario Api Scenarios  Scenario Id  Load Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sim/control": {
+      "post": {
+        "summary": "Sim Control",
+        "description": "Control simulation clock: start, pause, reset, or change speed multiplier.",
+        "operationId": "sim_control_api_sim_control_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimControlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Sim Control Api Sim Control Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/requests": {
+      "post": {
+        "summary": "Create Request",
+        "description": "Submit a dynamic ride request (from UI button or rider view).",
+        "operationId": "create_request_api_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoundedRequestSubmission"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Create Request Api Requests Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/state": {
+      "get": {
+        "summary": "Get State",
+        "description": "High performance cached state snapshot (<20ms).",
+        "operationId": "get_state_api_state_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Get State Api State Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dispatch/run": {
+      "post": {
+        "summary": "Run Dispatch",
+        "description": "Force flush the current batch window and run dispatch strategy.",
+        "operationId": "run_dispatch_api_dispatch_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchRunRequest",
+                "default": {
+                  "strategy": "hybrid"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/fares/{group_id}": {
+      "get": {
+        "summary": "Get Fares",
+        "description": "Retrieve fare breakdown and fairness audit for a vehicle group.",
+        "operationId": "get_fares_api_fares__group_id__get",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FareBreakdown"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/diff/{request_id}": {
+      "get": {
+        "summary": "Get Diff",
+        "description": "Return before / after route plan for the request that was just added.",
+        "operationId": "get_diff_api_diff__request_id__get",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Get Diff Api Diff  Request Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/arena/{scenario_id}": {
+      "get": {
+        "summary": "Run Arena",
+        "description": "Algorithm Arena: compares dispatch strategies on the same scenario.",
+        "operationId": "run_arena_api_arena__scenario_id__get",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Run Arena Api Arena  Scenario Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BoundedLatLon": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "maximum": 20.2,
+            "minimum": 19.8,
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "maximum": 74.0,
+            "minimum": 73.6,
+            "title": "Lon"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "title": "BoundedLatLon",
+        "description": "LatLon with strict geographical boundaries."
+      },
+      "BoundedRequestSubmission": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "pickup": {
+            "$ref": "#/components/schemas/BoundedLatLon"
+          },
+          "drop": {
+            "$ref": "#/components/schemas/BoundedLatLon"
+          },
+          "seats": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Seats",
+            "default": 1
+          },
+          "max_wait_s": {
+            "type": "number",
+            "maximum": 3600.0,
+            "minimum": 30.0,
+            "title": "Max Wait S",
+            "default": 480.0
+          },
+          "detour_cap": {
+            "type": "number",
+            "maximum": 0.5,
+            "minimum": 0.05,
+            "title": "Detour Cap",
+            "default": 0.15
+          }
+        },
+        "type": "object",
+        "required": [
+          "pickup",
+          "drop"
+        ],
+        "title": "BoundedRequestSubmission",
+        "description": "Validated ride request submission."
+      },
+      "DispatchResult": {
+        "properties": {
+          "strategy": {
+            "type": "string",
+            "title": "Strategy"
+          },
+          "solve_ms": {
+            "type": "number",
+            "title": "Solve Ms"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/RoutePlan"
+            },
+            "type": "array",
+            "title": "Plans"
+          },
+          "assigned": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assigned"
+          },
+          "deferred": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Deferred"
+          },
+          "rejected": {
+            "items": {
+              "$ref": "#/components/schemas/RejectedRequest"
+            },
+            "type": "array",
+            "title": "Rejected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "strategy",
+          "solve_ms"
+        ],
+        "title": "DispatchResult",
+        "description": "Result of running a dispatch strategy on a batch."
+      },
+      "DispatchRunRequest": {
+        "properties": {
+          "strategy": {
+            "type": "string",
+            "title": "Strategy",
+            "default": "hybrid"
+          }
+        },
+        "type": "object",
+        "title": "DispatchRunRequest"
+      },
+      "FairnessAudit": {
+        "properties": {
+          "efficiency": {
+            "type": "boolean",
+            "title": "Efficiency"
+          },
+          "symmetry": {
+            "type": "boolean",
+            "title": "Symmetry"
+          },
+          "null_player": {
+            "type": "boolean",
+            "title": "Null Player"
+          },
+          "individual_rationality": {
+            "$ref": "#/components/schemas/IndividualRationalityAudit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "efficiency",
+          "symmetry",
+          "null_player",
+          "individual_rationality"
+        ],
+        "title": "FairnessAudit",
+        "description": "Shapley axiom checks."
+      },
+      "FareBreakdown": {
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "title": "Group Id"
+          },
+          "riders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Riders"
+          },
+          "total_cost": {
+            "type": "number",
+            "title": "Total Cost"
+          },
+          "solo": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Solo"
+          },
+          "equal": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Equal"
+          },
+          "proportional": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Proportional"
+          },
+          "shapley": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Shapley"
+          },
+          "shapley_ci": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shapley Ci"
+          },
+          "audit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FairnessAudit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "group_id",
+          "riders",
+          "total_cost"
+        ],
+        "title": "FareBreakdown",
+        "description": "Fare allocation for a pool group."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IndividualRationalityAudit": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "violations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Violations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "IndividualRationalityAudit"
+      },
+      "LatLon": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "title": "LatLon",
+        "description": "Geographic coordinate."
+      },
+      "RejectReason": {
+        "type": "string",
+        "enum": [
+          "NO_VEHICLE_NEARBY",
+          "CAPACITY_FULL",
+          "DETOUR_EXCEEDED",
+          "WINDOW_MISSED",
+          "WOULD_BREAK_COMMITMENT",
+          "SOLVER_TIMEOUT"
+        ],
+        "title": "RejectReason"
+      },
+      "RejectedRequest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/RejectReason"
+          },
+          "explain": {
+            "type": "string",
+            "title": "Explain"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "reason",
+          "explain"
+        ],
+        "title": "RejectedRequest",
+        "description": "A rejected request with reason and explanation."
+      },
+      "RiderValidation": {
+        "properties": {
+          "detour_pct": {
+            "type": "number",
+            "title": "Detour Pct"
+          },
+          "wait_s": {
+            "type": "number",
+            "title": "Wait S"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detour_pct",
+          "wait_s"
+        ],
+        "title": "RiderValidation",
+        "description": "Per-rider validation results."
+      },
+      "RoutePlan": {
+        "properties": {
+          "vehicle_id": {
+            "type": "string",
+            "title": "Vehicle Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 1
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/Stop"
+            },
+            "type": "array",
+            "title": "Stops"
+          },
+          "total_dist_m": {
+            "type": "number",
+            "title": "Total Dist M",
+            "default": 0.0
+          },
+          "total_time_s": {
+            "type": "number",
+            "title": "Total Time S",
+            "default": 0.0
+          },
+          "polyline": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Polyline"
+          },
+          "validation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValidationReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "vehicle_id"
+        ],
+        "title": "RoutePlan",
+        "description": "A complete route plan for a vehicle."
+      },
+      "SimControlRequest": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "pattern": "^(start|pause|reset)$",
+            "title": "Action"
+          },
+          "speed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "SimControlRequest"
+      },
+      "Stop": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "type": {
+            "$ref": "#/components/schemas/StopType"
+          },
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "point": {
+            "$ref": "#/components/schemas/LatLon"
+          },
+          "eta_s": {
+            "type": "number",
+            "title": "Eta S"
+          },
+          "load_after": {
+            "type": "integer",
+            "title": "Load After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "type",
+          "request_id",
+          "point",
+          "eta_s",
+          "load_after"
+        ],
+        "title": "Stop",
+        "description": "A stop in a route plan."
+      },
+      "StopType": {
+        "type": "string",
+        "enum": [
+          "PICKUP",
+          "DROP"
+        ],
+        "title": "StopType"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "ValidationReport": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "violations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Violations"
+          },
+          "per_rider": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RiderValidation"
+            },
+            "type": "object",
+            "title": "Per Rider"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "ValidationReport",
+        "description": "Output of the independent validator."
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
