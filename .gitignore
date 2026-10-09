@@ -1,0 +1,57 @@
+# ─── Python ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+env/
+*.whl
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ─── Node ────────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+.npm
+*.tsbuildinfo
+
+# ─── IDE ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ─── OS ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ─── Environment ─────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─── Cache (large OSRM matrix files) ─────────────────
+backend/data/cache/*.json
+
+# ─── Test / Coverage ─────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# ─── Benchmark output ────────────────────────────────
+benchmark_results.csv

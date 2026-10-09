@@ -1,0 +1,40 @@
+{
+  "id": "edge_onboard_commitment",
+  "seed": null,
+  "_description": "Edge case: V1 already has R1 onboard. Adding R2 must not violate R1's ride-time cap. Tests WOULD_BREAK_COMMITMENT.",
+  "requests": [
+    {
+      "id": "R1",
+      "pickup": {"lat": 19.9977, "lon": 73.7803},
+      "drop": {"lat": 20.0069, "lon": 73.7930},
+      "request_time": 0,
+      "seats": 1,
+      "max_wait_s": 480,
+      "detour_cap": 0.15,
+      "status": "PICKED_UP",
+      "vehicle_id": "V1",
+      "direct_time_s": 180,
+      "direct_dist_m": 1650
+    },
+    {
+      "id": "R2",
+      "pickup": {"lat": 19.8901, "lon": 73.8265},
+      "drop": {"lat": 20.0450, "lon": 73.7900},
+      "request_time": 60,
+      "seats": 1,
+      "max_wait_s": 480,
+      "detour_cap": 0.15,
+      "status": "PENDING"
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "V1",
+      "position": {"lat": 19.9977, "lon": 73.7803},
+      "capacity": 4,
+      "onboard": ["R1"],
+      "route": null
+    }
+  ],
+  "hubs": []
+}

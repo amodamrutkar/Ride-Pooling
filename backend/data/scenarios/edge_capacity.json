@@ -1,0 +1,16 @@
+{
+  "id": "edge_capacity",
+  "seed": null,
+  "_description": "Edge case: 5 requests but only 1 vehicle with capacity 2. Forces capacity-based rejections.",
+  "requests": [
+    {"id": "R1", "pickup": {"lat": 19.9977, "lon": 73.7803}, "drop": {"lat": 20.0069, "lon": 73.7930}, "request_time": 0, "seats": 1, "max_wait_s": 480, "detour_cap": 0.15, "status": "PENDING"},
+    {"id": "R2", "pickup": {"lat": 19.9878, "lon": 73.7825}, "drop": {"lat": 20.0046, "lon": 73.7628}, "request_time": 10, "seats": 1, "max_wait_s": 480, "detour_cap": 0.15, "status": "PENDING"},
+    {"id": "R3", "pickup": {"lat": 20.0020, "lon": 73.7870}, "drop": {"lat": 19.9742, "lon": 73.7819}, "request_time": 20, "seats": 1, "max_wait_s": 480, "detour_cap": 0.15, "status": "PENDING"},
+    {"id": "R4", "pickup": {"lat": 19.9974, "lon": 73.7213}, "drop": {"lat": 19.9727, "lon": 73.7579}, "request_time": 30, "seats": 1, "max_wait_s": 480, "detour_cap": 0.15, "status": "PENDING"},
+    {"id": "R5", "pickup": {"lat": 19.9931, "lon": 73.8037}, "drop": {"lat": 20.0300, "lon": 73.7122}, "request_time": 40, "seats": 1, "max_wait_s": 480, "detour_cap": 0.15, "status": "PENDING"}
+  ],
+  "vehicles": [
+    {"id": "V1", "position": {"lat": 19.9977, "lon": 73.7803}, "capacity": 2, "onboard": [], "route": null}
+  ],
+  "hubs": []
+}

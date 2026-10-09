@@ -1,0 +1,19 @@
+# ─── Core ─────────────────────────────
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+
+# ─── Solver / Math ───────────────────
+ortools>=9.7
+numpy>=1.26.0
+scipy>=1.11.0
+
+# ─── HTTP (OSRM calls) ──────────────
+httpx>=0.25.0
+
+# ─── Persistence ─────────────────────
+aiosqlite>=0.19.0
+
+# ─── Test ─────────────────────────────
+pytest>=7.4.0
+hypothesis>=6.88.0

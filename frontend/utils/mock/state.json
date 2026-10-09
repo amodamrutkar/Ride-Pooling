@@ -1,0 +1,85 @@
+{
+  "vehicles": [
+    {
+      "id": "V1",
+      "position": {"lat": 19.9977, "lon": 73.7803},
+      "capacity": 4,
+      "onboard": ["R1"],
+      "route": {
+        "vehicle_id": "V1",
+        "version": 3,
+        "stops": [
+          {"seq": 0, "type": "PICKUP", "request_id": "R1", "point": {"lat": 19.9977, "lon": 73.7803}, "eta_s": 0, "load_after": 1},
+          {"seq": 1, "type": "PICKUP", "request_id": "R2", "point": {"lat": 19.9878, "lon": 73.7825}, "eta_s": 90, "load_after": 2},
+          {"seq": 2, "type": "DROP", "request_id": "R1", "point": {"lat": 20.0069, "lon": 73.7930}, "eta_s": 240, "load_after": 1},
+          {"seq": 3, "type": "DROP", "request_id": "R2", "point": {"lat": 20.0046, "lon": 73.7628}, "eta_s": 420, "load_after": 0}
+        ],
+        "total_dist_m": 7200,
+        "total_time_s": 420,
+        "polyline": [[19.9977, 73.7803], [19.9878, 73.7825], [20.0069, 73.7930], [20.0046, 73.7628]],
+        "validation": {
+          "ok": true,
+          "violations": [],
+          "per_rider": {
+            "R1": {"detour_pct": 8.2, "wait_s": 0},
+            "R2": {"detour_pct": 5.1, "wait_s": 90}
+          }
+        }
+      }
+    },
+    {
+      "id": "V2",
+      "position": {"lat": 20.0020, "lon": 73.7870},
+      "capacity": 4,
+      "onboard": [],
+      "route": null
+    },
+    {
+      "id": "V3",
+      "position": {"lat": 19.9742, "lon": 73.7819},
+      "capacity": 4,
+      "onboard": ["R3"],
+      "route": {
+        "vehicle_id": "V3",
+        "version": 1,
+        "stops": [
+          {"seq": 0, "type": "PICKUP", "request_id": "R3", "point": {"lat": 20.0020, "lon": 73.7870}, "eta_s": 30, "load_after": 1},
+          {"seq": 1, "type": "DROP", "request_id": "R3", "point": {"lat": 19.9742, "lon": 73.7819}, "eta_s": 300, "load_after": 0}
+        ],
+        "total_dist_m": 3400,
+        "total_time_s": 300,
+        "polyline": [[20.0020, 73.7870], [19.9742, 73.7819]],
+        "validation": {
+          "ok": true,
+          "violations": [],
+          "per_rider": {
+            "R3": {"detour_pct": 0.0, "wait_s": 30}
+          }
+        }
+      }
+    }
+  ],
+  "requests": [
+    {"id": "R1", "pickup": {"lat": 19.9977, "lon": 73.7803}, "drop": {"lat": 20.0069, "lon": 73.7930}, "request_time": 0, "seats": 1, "max_wait_s": 480, "detour_cap": 0.15, "status": "PICKED_UP", "vehicle_id": "V1", "direct_time_s": 180, "direct_dist_m": 1650},
+    {"id": "R2", "pickup": {"lat": 19.9878, "lon": 73.7825}, "drop": {"lat": 20.0046, "lon": 73.7628}, "request_time": 15, "seats": 1, "max_wait_s": 480, "detour_cap": 0.15, "status": "ASSIGNED", "vehicle_id": "V1", "direct_time_s": 270, "direct_dist_m": 2800},
+    {"id": "R3", "pickup": {"lat": 20.0020, "lon": 73.7870}, "drop": {"lat": 19.9742, "lon": 73.7819}, "request_time": 30, "seats": 1, "max_wait_s": 480, "detour_cap": 0.15, "status": "ASSIGNED", "vehicle_id": "V3", "direct_time_s": 300, "direct_dist_m": 3100},
+    {"id": "R4", "pickup": {"lat": 19.9974, "lon": 73.7213}, "drop": {"lat": 19.9727, "lon": 73.7579}, "request_time": 45, "seats": 1, "max_wait_s": 480, "detour_cap": 0.15, "status": "PENDING", "vehicle_id": null},
+    {"id": "R5", "pickup": {"lat": 19.9931, "lon": 73.8037}, "drop": {"lat": 20.0300, "lon": 73.7122}, "request_time": 60, "seats": 1, "max_wait_s": 480, "detour_cap": 0.15, "status": "PENDING", "vehicle_id": null}
+  ],
+  "metrics": {
+    "pooled_km": 10.6,
+    "solo_km": 15.5,
+    "saved_pct": 31.6,
+    "avg_occupancy": 1.5,
+    "avg_detour_pct": 4.4,
+    "max_detour_pct": 8.2,
+    "served_pct": 60.0,
+    "deadhead_pct": 12.0
+  },
+  "window": {
+    "window_s": 30,
+    "elapsed_s": 12,
+    "pending": ["R4", "R5"],
+    "next_flush_reason": "TIMER"
+  }
+}

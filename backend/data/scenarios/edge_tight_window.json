@@ -1,0 +1,14 @@
+{
+  "id": "edge_tight_window",
+  "seed": null,
+  "_description": "Edge case: requests with very short max_wait_s (60s). Tests WINDOW_MISSED rejection.",
+  "requests": [
+    {"id": "R1", "pickup": {"lat": 19.9977, "lon": 73.7803}, "drop": {"lat": 20.0300, "lon": 73.7122}, "request_time": 0, "seats": 1, "max_wait_s": 60, "detour_cap": 0.15, "status": "PENDING"},
+    {"id": "R2", "pickup": {"lat": 19.8901, "lon": 73.8265}, "drop": {"lat": 20.0069, "lon": 73.7930}, "request_time": 10, "seats": 1, "max_wait_s": 60, "detour_cap": 0.15, "status": "PENDING"},
+    {"id": "R3", "pickup": {"lat": 20.0450, "lon": 73.7900}, "drop": {"lat": 19.9515, "lon": 73.7362}, "request_time": 20, "seats": 1, "max_wait_s": 60, "detour_cap": 0.15, "status": "PENDING"}
+  ],
+  "vehicles": [
+    {"id": "V1", "position": {"lat": 19.9472, "lon": 73.8421}, "capacity": 4, "onboard": [], "route": null}
+  ],
+  "hubs": []
+}

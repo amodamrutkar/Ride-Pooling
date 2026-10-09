@@ -1,0 +1,130 @@
+{
+  "id": "demo_5r_3v",
+  "seed": null,
+  "requests": [
+    {
+      "id": "R1",
+      "pickup": {"lat": 19.9977, "lon": 73.7803},
+      "drop": {"lat": 20.0069, "lon": 73.7930},
+      "request_time": 0,
+      "seats": 1,
+      "max_wait_s": 480,
+      "detour_cap": 0.15,
+      "status": "PENDING",
+      "vehicle_id": null,
+      "reason": null,
+      "direct_time_s": null,
+      "direct_dist_m": null
+    },
+    {
+      "id": "R2",
+      "pickup": {"lat": 19.9878, "lon": 73.7825},
+      "drop": {"lat": 20.0046, "lon": 73.7628},
+      "request_time": 15,
+      "seats": 1,
+      "max_wait_s": 480,
+      "detour_cap": 0.15,
+      "status": "PENDING",
+      "vehicle_id": null,
+      "reason": null,
+      "direct_time_s": null,
+      "direct_dist_m": null
+    },
+    {
+      "id": "R3",
+      "pickup": {"lat": 20.0020, "lon": 73.7870},
+      "drop": {"lat": 19.9742, "lon": 73.7819},
+      "request_time": 30,
+      "seats": 1,
+      "max_wait_s": 480,
+      "detour_cap": 0.15,
+      "status": "PENDING",
+      "vehicle_id": null,
+      "reason": null,
+      "direct_time_s": null,
+      "direct_dist_m": null
+    },
+    {
+      "id": "R4",
+      "pickup": {"lat": 19.9974, "lon": 73.7213},
+      "drop": {"lat": 19.9727, "lon": 73.7579},
+      "request_time": 45,
+      "seats": 1,
+      "max_wait_s": 480,
+      "detour_cap": 0.15,
+      "status": "PENDING",
+      "vehicle_id": null,
+      "reason": null,
+      "direct_time_s": null,
+      "direct_dist_m": null
+    },
+    {
+      "id": "R5",
+      "pickup": {"lat": 19.9931, "lon": 73.8037},
+      "drop": {"lat": 20.0300, "lon": 73.7122},
+      "request_time": 60,
+      "seats": 1,
+      "max_wait_s": 480,
+      "detour_cap": 0.15,
+      "status": "PENDING",
+      "vehicle_id": null,
+      "reason": null,
+      "direct_time_s": null,
+      "direct_dist_m": null
+    },
+    {
+      "id": "R6_BAD",
+      "pickup": {"lat": 19.8901, "lon": 73.8265},
+      "drop": {"lat": 20.0450, "lon": 73.7900},
+      "request_time": 90,
+      "seats": 1,
+      "max_wait_s": 480,
+      "detour_cap": 0.15,
+      "status": "PENDING",
+      "vehicle_id": null,
+      "reason": null,
+      "direct_time_s": null,
+      "direct_dist_m": null
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "V1",
+      "position": {"lat": 19.9977, "lon": 73.7803},
+      "capacity": 4,
+      "onboard": [],
+      "route": null
+    },
+    {
+      "id": "V2",
+      "position": {"lat": 20.0020, "lon": 73.7870},
+      "capacity": 4,
+      "onboard": [],
+      "route": null
+    },
+    {
+      "id": "V3",
+      "position": {"lat": 19.9742, "lon": 73.7819},
+      "capacity": 4,
+      "onboard": [],
+      "route": null
+    }
+  ],
+  "hubs": [
+    {"name": "CBS", "lat": 19.9977, "lon": 73.7803},
+    {"name": "Nashik Road", "lat": 19.9472, "lon": 73.8421},
+    {"name": "College Road", "lat": 20.0046, "lon": 73.7628},
+    {"name": "Gangapur Road", "lat": 20.0300, "lon": 73.7122},
+    {"name": "Panchavati", "lat": 20.0069, "lon": 73.7930},
+    {"name": "Dwarka", "lat": 19.9931, "lon": 73.8037},
+    {"name": "Indira Nagar", "lat": 19.9742, "lon": 73.7819},
+    {"name": "Satpur MIDC", "lat": 19.9974, "lon": 73.7213},
+    {"name": "Deolali Camp", "lat": 19.8901, "lon": 73.8265},
+    {"name": "CIDCO", "lat": 19.9727, "lon": 73.7579},
+    {"name": "Ambad MIDC", "lat": 19.9515, "lon": 73.7362},
+    {"name": "Mumbai Naka", "lat": 19.9878, "lon": 73.7825},
+    {"name": "Ashok Stambh", "lat": 20.0020, "lon": 73.7870},
+    {"name": "Pathardi Phata", "lat": 19.9500, "lon": 73.7800},
+    {"name": "Makhmalabad", "lat": 20.0450, "lon": 73.7900}
+  ]
+}
