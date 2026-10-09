@@ -122,3 +122,41 @@ poolIQ/
 - **Dynamic Pricing (Parth):** Base fare + distance + surge factor based on demand/supply ratio.
 - **Live Metrics (Amod):** Pooling efficiency, detour ratio, SLA compliance, vehicle utilization.
 - **React Frontend (Nakul):** MapLibre GL map, vehicle markers, rider route polylines, operator control panel.
+
+---
+
+## Kaushik (Fair Pricing, Metrics, Research & Pitch Lead)
+
+### Current Prompt / Objective
+Implement the cooperative game-theoretic Shapley pricing engine, baseline splits, live fairness audit, KPI metrics engine, and pitch/research assets for PoolIQ in pure Python 3.11+.
+
+### Tech Decisions & Architecture
+- **Shapley Characteristic Coalition Function $v(S)$:**
+  - Bitmask DP formulation over precedence-valid stop orderings (capacity respected, start at first pickup, end at last drop).
+  - Precedence constraint: drop stop for rider $j$ only visited if pickup stop $j$ was already visited.
+  - Capacity constraint: onboard passenger count $\le$ vehicle capacity (default 4) at every visited stop.
+- **Exact & Sampled Computation:**
+  - $n \le 5$: Classical exact permutation Shapley formula ($O(n \cdot 2^{n-1})$).
+  - $n > 5$: Seeded Monte-Carlo permutation sampling (2,000 permutations) computing marginal contributions with empirical variance and 95% confidence intervals.
+  - Exact reconciliation: Total fares calibrated to executed group route cost $v(N)$ to satisfy the efficiency axiom to the exact paisa.
+- **Baseline Allocations:** Solo unpooled trip costs, equal split ($v(N)/n$), distance-proportional split.
+- **Fairness Audit:** Pure functional validator auditing efficiency, symmetry, null player, and individual rationality ($\phi_i \le v(\{i\})$).
+- **KPI Metrics:** Distance-weighted average passenger occupancy, total pooled km vs solo km, saved %, empty vehicle deadhead %, average & maximum detour %, and request service rates.
+- **Pitch Materials:** Complete 2-minute demo script, 6-slide deck outline, 15 judge Q&A guide, and a research note on LOUD & KaRRi.
+
+### Features Implemented
+1. `backend/engine/pricing/shapley.py`: Bitmask DP, exact Shapley, Monte-Carlo Shapley, and `compute_fares`.
+2. `backend/engine/pricing/baselines.py`: `solo_fares`, `equal_split`, `distance_proportional_split`.
+3. `backend/engine/pricing/audit.py`: `run_fairness_audit` with `FairnessAudit` Pydantic model.
+4. `backend/engine/metrics/metrics.py`: `compute_metrics` with `Metrics` Pydantic model.
+5. `backend/tests/test_pricing.py`: 7 required unit and property tests.
+6. `backend/tests/test_metrics.py`: Operational KPI unit tests.
+7. `docs/pitch/demo_script.md`: 2-minute pitch script.
+8. `docs/pitch/deck_outline.md`: 6-slide deck outline.
+9. `docs/pitch/loud_research_note.md`: Research note on LOUD vs LOUD-inspired.
+10. `docs/qa.md`: 15 comprehensive judge questions & answers.
+
+### Future Scope
+- Integration with live OSRM matrix in `/api/fares/{group_id}` endpoint.
+- Interactive visualization of the Shapley coalition tree in the React frontend.
+
