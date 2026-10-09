@@ -72,3 +72,51 @@
 - A lightweight `stub_validator` is currently used in `backend/tests/test_dispatch.py` to test dispatch logic independently.
 - When Ketan's validator module (`backend/engine/validator/validator.py`) is complete, pass `validate_route_plan` into `DispatchCtx.validator`. Strategy modules consume `ctx.validator` as a callable protocol and do NOT require code changes.
 
+### Next Steps
+1. Teammates clone repository and install dependencies (`make setup`).
+2. Run baseline unit tests (`make test`).
+3. Plug in respective submodules into the established contracts.
+
+## Ketan (Backend Platform, Batcher, Validator & Security Lead)
+
+### Completed
+- [x] **Data Contracts & Models (`backend/app/models.py`)**:
+  - Validated Pydantic v2 data models per PRD §6.
+  - Exported OpenAPI specification to `docs/openapi.json`.
+- [x] **Independent Route Validator (`backend/engine/validator/validator.py`)**:
+  - Pure function with zero dependencies on optimizer or dispatcher.
+  - Enforces precedence, cumulative capacity, pickup time windows, the 15% detour cap, and travel feasibility.
+  - Computes per-rider detour % and wait seconds for UI proof badge.
+  - Complete test suite (`backend/tests/test_validator.py`, 9 tests passing).
+- [x] **Sliding-Window Batcher (`backend/engine/batching/sliding_window.py`)**:
+  - Dynamic request batching over sliding window (default 30s).
+  - Multi-trigger flush policies: `TIMER`, `SIZE` (N_max=12), and `URGENCY` (pickup deadline proximity).
+  - Defer-then-reject rolling horizon logic with `WINDOW_MISSED` reason codes.
+  - Unit test suite (`backend/tests/test_batcher.py`, 5 tests passing).
+- [x] **World Orchestrator (`backend/app/world.py`)**:
+  - Simulation loop coordination: batching → dispatch → independent validator → plan commit → fare calculation → metrics update.
+  - Route version tracking; guarantees existing vehicle route plans remain untouched if a candidate dispatch plan fails validation.
+  - Before/after route plan diff capture for `GET /api/diff/{request_id}`.
+  - High-performance cached state snapshot for `<20ms` latency on `GET /api/state`.
+- [x] **FastAPI Platform Routes (`backend/app/routes.py`, `backend/app/main.py`)**:
+  - Implemented all PRD §6 endpoints: `/api/health`, `/api/scenarios/{id}/load`, `/api/sim/control`, `/api/requests`, `/api/state`, `/api/dispatch/run`, `/api/fares/{group_id}`, `/api/diff/{request_id}`, `/api/arena/{scenario}`.
+  - CORS allowlist for Vite/React frontend.
+  - Global sanitized exception handling preventing internal stack trace leaks.
+- [x] **SQLite State Snapshotting (`backend/app/persistence.py`)**:
+  - Automatic snapshot storage on every window flush and control operation.
+- [x] **Security Hardening & Documentation (`backend/app/security.py`, `docs/security.md`)**:
+  - Nashik geographical bounding box enforcement [19.8-20.2 lat, 73.6-74.0 lon].
+  - Rate limiting on request submissions.
+  - Bearer token authentication on administrative routes (`/scenarios/*/load`, `/sim/control`).
+  - Defense-in-depth HTTP security headers middleware.
+  - One-page threat model and security architecture checklist in `docs/security.md`.
+- [x] **Integration & API Test Suite (`backend/tests/test_api_and_world.py`)**:
+  - 8 tests passing verifying all endpoints, auth protection, rate limiting, and diff tracking.
+
+### In Progress
+- [ ] Integration with Spandan's multi-algorithm dispatcher (`backend/engine/dispatch/`) and Kaushik's bitmask DP Shapley engine (`backend/engine/pricing/`).
+
+### Next Steps
+1. Pair with Spandan to plug in `loud_insertion` and `hybrid` dispatchers into `World.set_dispatcher()`.
+2. Connect Kaushik's Shapley cost allocator to replace the mock fare calculation in `World._update_fares()`.
+3. Support Nakul's frontend team with live endpoint testing.
