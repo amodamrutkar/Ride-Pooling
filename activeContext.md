@@ -121,4 +121,23 @@ poolIQ/
 - **Hard Constraint Validator (Amod / Parth):** Capacity limits, max detour (1.4x direct), time window compliance, onboard sequence guarantees.
 - **Dynamic Pricing (Parth):** Base fare + distance + surge factor based on demand/supply ratio.
 - **Live Metrics (Amod):** Pooling efficiency, detour ratio, SLA compliance, vehicle utilization.
-- **React Frontend (Nakul):** MapLibre GL map, vehicle markers, rider route polylines, operator control panel.
+- **React Frontend (Nakul):** Leaflet dark tile map, vehicle markers, rider route polylines, operator control panel.
+
+---
+
+## Nakul (Frontend Lead — Dashboard, Rider Mobile View, Visual Polish)
+
+### Current Prompt / Objective
+Build the explainable frontend for PoolIQ: a dark control-room operator dashboard (`/`) and a mobile-first rider interface (`/rider`) adhering strictly to the Stitch UI design specifications and PRD contracts. Make dynamic batching, mathematical proof badges, and Shapley cost allocations clear without requiring judges to inspect code.
+
+### Tech Decisions & Architecture
+- **Framework & Tooling:** React 19 + Vite 8 + Tailwind CSS v4 + React Router v7.
+- **Mapping & Geospatial:** Leaflet 1.9 + React-Leaflet 5 with CartoDB dark tile layer (`dark_all`). Custom DOM `L.divIcon` markers for vehicles (showing ID + occupancy load) and pickup/drop stops.
+- **Design System:** Aligned with Stitch `DESIGN.md` tokens: Obsidian surface (`#0A0A0F`, `#131318`), Telemetry accent (`#0ED4A8`), Inter & JetBrains Mono typography, 4px/8px grid system. No AI clichés or purple gradients.
+- **State Management & Polling:** Polling `/api/state` every 1000ms with automatic pause on document tab hidden (`document.visibilityState`). Graceful fallback to `mockState` when offline.
+- **Interactive Capabilities:**
+  - **Click-to-Add Request:** Click 1 for pickup, Click 2 for destination &rarr; POST to `/api/requests`.
+  - **Before / After Diff Toggle:** Displays old pre-insertion route as dashed grey (`#6B6B76`) and newly optimized pooled route as solid teal (`#0ED4A8`).
+  - **Algorithm Arena:** Interactive benchmark across Strategies A–E with metric winner highlights.
+  - **Explainable Rejection UI:** Reason code toast (`DETOUR_EXCEEDED`) preserving existing rider commitments.
+- **Mobile Rider Flow (`/rider`):** 390px mobile-first responsive layout traversing Request &rarr; Sliding Window Matching &rarr; Active Ride with multi-stop itinerary and Shapley fair fare savings.

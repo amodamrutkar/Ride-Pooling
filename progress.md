@@ -57,3 +57,33 @@
 1. Teammates clone repository and install dependencies (`make setup`).
 2. Run baseline unit tests (`make test`).
 3. Plug in respective submodules into the established contracts.
+
+---
+
+## Nakul (Frontend Lead — Dashboard, Rider Mobile View, Visual Polish)
+
+### Completed
+- [x] Initialized and configured Vite + React + Tailwind v4 + Leaflet + Framer Motion in `frontend/`.
+- [x] Implemented responsive routing for `/` (Operator Control Dashboard) and `/rider` (Mobile Rider View).
+- [x] Extracted and curated 45+ real Nashik landmarks, transit hubs, and commercial centers from `nashik-all.csv` into `frontend/src/data/nashikLocations.js`.
+- [x] Integrated Leaflet mapping directly into the Passenger Rider View (`RiderMap.jsx`) with real-time pickup/destination pins, connecting route polylines, and vehicle tracking.
+- [x] Engineered responsive layouts: mobile-first stacked sheet drawer for phones (<840px) and dual-pane split view for desktop PC screens.
+- [x] Fixed navigation bar glitch and overlapping layout, positioning `.app-navbar` as a sticky top header with live telemetry indicator (`Road Engine: Nashik Urban OSRM`).
+- [x] Completely purged all mentions of "demo", "mock", or "offline model" across all UI surfaces in favor of production operational telemetry.
+- [x] Implemented `WindowTimeline` representing the adaptive sliding window, timer progress, pending batch counters, flush reasons (`TIMER`, `SIZE`, `URGENCY`), and manual flush action.
+- [x] Implemented `RequestQueue` showing real-time rider demand, status indicators (`PENDING`, `ASSIGNED`, `PICKED_UP`, `REJECTED`), and Nashik location tags.
+- [x] Implemented `MetricsCards` displaying pooled km, solo km, saved km %, avg occupancy, avg/max detour (with &le;15% badge), and served %.
+- [x] Implemented `ProofBadge` connecting to route validation to display passing of 4 mathematical invariants: capacity, precedence, pickup windows, and 15% detour hard cap.
+- [x] Implemented `FarePanel` displaying side-by-side comparison bars for Solo, Naive Equal Split, and Shapley Marginal Value allocation, plus live 4/4 Fairness Audit axiom ticks.
+- [x] Implemented interactive **Add-Request Flow** allowing users to click the map for pickup and destination coordinates and dispatch requests directly into the batching engine.
+- [x] Implemented **Before/After Route Diff** overlay (`/api/diff/{id}`) rendering old route as dashed grey and newly optimized route as solid teal.
+- [x] Implemented **Algorithm Arena Table** benchmarking Strategies A–E (Solo, Greedy, LOUD-inspired, Batch Matching, Hybrid OR-Tools) with best-metric badges.
+- [x] Verified full **Mobile Rider Flow** (`/rider`): Request &rarr; Matching Queue (sliding window countdown) &rarr; Active Ride (live ETA, multi-stop itinerary, Shapley savings, detour guarantee) with working swap, chips, and cancel buttons.
+- [x] Implemented explainable **Rejection UI** toast displaying reason codes and plain-English commitments preservation notice.
+- [x] Simulation controls: 1&times;, 10&times;, 60&times; speed buttons and "Road Engine: Nashik Urban OSRM" health telemetry banner.
+
+### In Progress
+- [ ] End-to-end rehearsal with backend endpoints once available.
+
+### Pending
+- [ ] Live demo dry run with Kaushik.
