@@ -46,12 +46,31 @@
 - [ ] Teammate workspace onboarding & handoff.
 
 ### Pending
-- [ ] Integration of Engine Dispatch (`backend/engine/dispatch/` - Parth)
-- [ ] Integration of Optimizer (`backend/engine/optimizer/` - Parth)
-- [ ] Integration of Validator & Hard Constraints (`backend/engine/validator/` - Amod/Parth)
-- [ ] Integration of Pricing & Surge Module (`backend/engine/pricing/` - Parth/Amod)
-- [ ] Integration of Metrics Calculation (`backend/engine/metrics/` - Amod)
+- [ ] Integration of Validator & Hard Constraints (`backend/engine/validator/` - Ketan)
+- [ ] Integration of Pricing & Surge Module (`backend/engine/pricing/` - Kaushik)
+- [ ] Integration of Metrics Calculation (`backend/engine/metrics/` - Kaushik)
 - [ ] Integration of Frontend React UI & MapLibre Dashboard (`frontend/` - Nakul)
+
+## Spandan (Optimization Core Lead)
+
+### Completed
+- [x] `OsrmProvider` (`backend/engine/routing/osrm.py`): OSRM Table API client with local JSON disk cache and automatic fallback to `FallbackMatrixProvider`.
+- [x] `SpatialIndex` (`backend/engine/routing/spatial_index.py`): Grid-based (~500m cell) spatial index for candidate vehicle filtering (`candidates(pickup, k=8)`).
+- [x] `Dispatcher` protocol & `DispatchCtx` (`backend/engine/dispatch/__init__.py`): Interface freeze and context injection container. Supports injected `validator` callable.
+- [x] Strategy A `solo` (`backend/engine/dispatch/solo.py`): Nearest idle vehicle per rider (no-pooling baseline).
+- [x] Strategy B `greedy_fcfs` (`backend/engine/dispatch/greedy_fcfs.py`): Nearest feasible vehicle append at route end.
+- [x] Strategy C `loud_insertion` (`backend/engine/dispatch/loud_insertion.py`): LOUD-inspired exact best insertion over candidate vehicles with O(1) slack array lookups.
+- [x] Strategy D `batch_matching` (`backend/engine/dispatch/batch_matching.py`): Hungarian algorithm (`scipy.optimize.linear_sum_assignment`) over insertion cost matrix.
+- [x] Strategy E `hybrid` (`backend/engine/dispatch/hybrid.py`): Strategy D + OR-Tools VRPTW polish stage (`backend/engine/optimizer/ortools_vrptw.py`).
+- [x] Arena Benchmark Runner (`scripts/run_arena.py`): Runs strategies A–E on seeded scenarios and outputs solve time, served %, total km, and rejections.
+- [x] Test Suite (`backend/tests/`):
+  - `test_spatial_index.py`: Grid cell indexing and candidate filtering.
+  - `test_osrm.py`: Disk cache hit/miss and offline fallback handling.
+  - `test_dispatch.py`: Full strategy test suite (A–E), determinism checks, rejection reason codes, and validator integration stub.
+
+### Integration Note for Ketan
+- A lightweight `stub_validator` is currently used in `backend/tests/test_dispatch.py` to test dispatch logic independently.
+- When Ketan's validator module (`backend/engine/validator/validator.py`) is complete, pass `validate_route_plan` into `DispatchCtx.validator`. Strategy modules consume `ctx.validator` as a callable protocol and do NOT require code changes.
 
 ### Next Steps
 1. Teammates clone repository and install dependencies (`make setup`).
