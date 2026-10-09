@@ -25,10 +25,16 @@ from pydantic import BaseModel, Field
 
 from backend.app.models import (
     DispatchResult,
+    DistanceConfig,
     FareBreakdown,
+    GpsAlertSummary,
+    GpsIntegrityResult,
     LatLon,
+    LocationUpdate,
     Request as RideRequest,
     RequestStatus,
+    TrafficMode,
+    TrafficScenarioConfig,
 )
 from backend.app.security import (
     BoundedRequestSubmission,
@@ -317,3 +323,80 @@ def run_arena(scenario_id: str, world: World = Depends(get_world)) -> dict[str, 
         "strategies": base_strategies,
         "results": results_list,
     }
+
+
+# ─── Feature A: GPS Integrity & Location Fraud Endpoints ─────────────────────
+
+@router.post("/location/updates", response_model=GpsIntegrityResult)
+def submit_location_update(
+    http_request: Request,
+    payload: LocationUpdate,
+    world: World = Depends(get_world),
+) -> GpsIntegrityResult:
+    """Submit a driver or passenger location observation for fraud & integrity evaluation."""
+    client_ip = http_request.client.host if http_request.client else "127.0.0.1"
+    rate_limiter.check(client_ip)
+    return world.submit_location_update(payload)
+
+
+@router.get("/location/integrity/{entity_id}")
+def get_location_integrity(
+    entity_id: str,
+    world: World = Depends(get_world),
+) -> dict[str, Any]:
+    """Retrieve the authoritative GPS integrity diagnostic state for a specific entity."""
+    state = world.get_gps_integrity(entity_id)
+    if not state:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No GPS tracking record found for entity '{entity_id}'.",
+        )
+    return state
+
+
+@router.get("/fraud/alerts", response_model=list[GpsAlertSummary])
+def get_fraud_alerts(
+    limit: int = 50,
+    world: World = Depends(get_world),
+) -> list[GpsAlertSummary]:
+    """Operational monitoring endpoint for quarantined and suspicious location observations."""
+    return world.get_fraud_alerts(limit=limit)
+
+
+# ─── Feature B: Distance & Candidate Search Configuration ────────────────────
+
+@router.get("/config/distance", response_model=DistanceConfig)
+def get_distance_config(world: World = Depends(get_world)) -> DistanceConfig:
+    """Fetch backend-owned distance and pooling configuration."""
+    return world.get_distance_config()
+
+
+@router.post("/config/distance", response_model=DistanceConfig)
+def update_distance_config(
+    payload: DistanceConfig,
+    world: World = Depends(get_world),
+) -> DistanceConfig:
+    """Update backend distance configuration (affects subsequent dispatches)."""
+    return world.update_distance_config(payload)
+
+
+# ─── Feature C: Traffic Scenario & ETA Simulation ────────────────────────────
+
+@router.post("/traffic/scenario", response_model=TrafficScenarioConfig)
+def set_traffic_scenario(
+    payload: TrafficScenarioConfig,
+    world: World = Depends(get_world),
+) -> TrafficScenarioConfig:
+    """Switch active traffic simulation scenario (NORMAL, FAST, MODERATE, SEVERE 50%, SLOWDOWN)."""
+    return world.set_traffic_scenario(
+        mode=payload.mode,
+        seed=payload.seed,
+        corridor_focus=payload.corridor_focus,
+    )
+
+
+@router.get("/traffic/status")
+def get_traffic_status(world: World = Depends(get_world)) -> dict[str, Any]:
+    """Return active traffic mode, speed multiplier, and fleet travel-time status."""
+    return world.get_traffic_status()
+

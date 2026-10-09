@@ -1,80 +1,60 @@
-import { mockState, mockFareBreakdown, mockArena } from '../data/mockState.js'
+/**
+ * PoolIQ API Client — Connects frontend with FastAPI Backend
+ * Supports both local Vite proxy and production Vercel/Render deployments.
+ */
 
-const API_BASE = import.meta.env.VITE_API_URL || ''
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const ADMIN_TOKEN = 'pooliq-admin-secret-key';
 
-let useMock = true
+const getAuthHeaders = () => ({
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${ADMIN_TOKEN}`
+});
 
-async function fetchJSON(path) {
+export async function fetchHealth() {
   try {
-    const res = await fetch(`${API_BASE}${path}`)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    useMock = false
-    return await res.json()
-  } catch {
-    useMock = true
-    return null
+    const res = await fetch(`${API_BASE}/api/health`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Backend health check failed:', err);
+    return null;
   }
 }
 
-export async function getState() {
-  const data = await fetchJSON('/api/state')
-  return data || mockState
-}
-
-export async function getHealth() {
-  const data = await fetchJSON('/api/health')
-  return data || { status: 'ok', road_data: 'Nashik Urban OSRM' }
-}
-
-export async function getFares(groupId) {
-  const data = await fetchJSON(`/api/fares/${groupId}`)
-  return data || mockFareBreakdown
-}
-
-export async function getArena(scenario = 'nashik_metro_core') {
-  const data = await fetchJSON(`/api/arena/${scenario}`)
-  if (!data) return mockArena
-  if (data.strategies && !data.results) {
-    data.results = data.strategies.map((s) => ({
-      strategy: s.name || s.strategy,
-      total_km: s.total_km ?? s.pooled_km ?? 0,
-      avg_detour: s.avg_detour ?? s.avg_detour_pct ?? 0,
-      served_pct: s.served_pct ?? 100,
-      avg_occupancy: s.avg_occupancy ?? 1.8,
-      solve_ms: s.solve_ms ?? 1,
-    }))
-  }
-  return data
-}
-
-export async function submitRequest(pickup, drop) {
+export async function fetchState() {
   try {
+    const res = await fetch(`${API_BASE}/api/state`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Backend state fetch failed:', err);
+    return null;
+  }
+}
+
+export async function submitRideRequest({ pickup, drop, seats = 1, maxWait = 480, detourCap = 0.15 }) {
+  try {
+    const payload = {
+      pickup: { lat: Number(pickup.lat), lon: Number(pickup.lon) },
+      drop: { lat: Number(drop.lat), lon: Number(drop.lon) },
+      seats: Number(seats),
+      max_wait_s: Number(maxWait),
+      detour_cap: Number(detourCap)
+    };
     const res = await fetch(`${API_BASE}/api/requests`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pickup: { lat: pickup[0], lon: pickup[1] },
-        drop: { lat: drop[0], lon: drop[1] },
-        seats: 1,
-        max_wait_s: 480,
-        detour_cap: 0.15,
-      }),
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Backend request submission failed, using local simulation:', err);
     return {
-      id: data.id || data.request?.id || `R${Date.now() % 1000}`,
-      status: data.status || data.request?.status || 'PENDING',
-      vehicle_id: data.vehicle_id || data.request?.vehicle_id || null,
-      ...data,
-    }
-  } catch {
-    // Mock response: simulate an assignment
-    return {
-      id: `R${Date.now() % 1000}`,
-      status: 'PENDING',
-      vehicle_id: null,
-    }
+      id: `R_${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+      status: 'simulated'
+    };
   }
 }
 
@@ -83,72 +63,130 @@ export async function runDispatch(strategy = 'hybrid') {
     const res = await fetch(`${API_BASE}/api/dispatch/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ strategy }),
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
-  } catch {
-    return null
+      body: JSON.stringify({ strategy })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Dispatch run failed:', err);
+    return null;
   }
 }
 
-export async function controlSim(action, speed) {
+export async function controlSim(action, speed = null) {
   try {
     const res = await fetch(`${API_BASE}/api/sim/control`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer pooliq-admin-secret-key',
-      },
-      body: JSON.stringify({ action, speed }),
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
-  } catch {
-    return null
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ action, speed })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Simulation control failed:', err);
+    return null;
   }
 }
 
-export async function getDiff(requestId = 'R2') {
-  const data = await fetchJSON(`/api/diff/${requestId}`)
-  if (data) {
-    if (!data.old_route && data.before) data.old_route = data.before
-    if (!data.new_route && data.after) data.new_route = data.after
-    return data
-  }
-  // Mock diff: route before and after R2 was pooled into V1
-  return {
-    request_id: requestId,
-    vehicle_id: 'V1',
-    old_route: {
-      polyline: [
-        [19.9977, 73.7803],
-        [20.0020, 73.7870],
-        [20.0069, 73.7930],
-      ],
-      total_dist_m: 4800,
-      total_time_s: 240,
-    },
-    new_route: {
-      polyline: [
-        [19.9977, 73.7803],
-        [19.9900, 73.7810],
-        [19.9878, 73.7825],
-        [19.9920, 73.7860],
-        [19.9980, 73.7890],
-        [20.0069, 73.7930],
-        [20.0060, 73.7850],
-        [20.0050, 73.7750],
-        [20.0046, 73.7628],
-      ],
-      total_dist_m: 7200,
-      total_time_s: 420,
-    },
-    detour_pct: 5.1,
-    cost_delta: 28.8,
+export async function loadScenario(scenarioId) {
+  try {
+    const res = await fetch(`${API_BASE}/api/scenarios/${scenarioId}/load`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Scenario load failed:', err);
+    return null;
   }
 }
 
-export function isUsingMock() {
-  return useMock
+export async function fetchFare(groupId) {
+  try {
+    const res = await fetch(`${API_BASE}/api/fares/${groupId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function fetchDistanceConfig() {
+  try {
+    const res = await fetch(`${API_BASE}/api/config/distance`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function updateDistanceConfig(config) {
+  try {
+    const res = await fetch(`${API_BASE}/api/config/distance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function fetchTrafficStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/api/traffic/status`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function setTrafficScenario(mode, corridorFocus = null) {
+  try {
+    const res = await fetch(`${API_BASE}/api/traffic/scenario`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode, corridor_focus: corridorFocus })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function fetchFraudAlerts(limit = 20) {
+  try {
+    const res = await fetch(`${API_BASE}/api/fraud/alerts?limit=${limit}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    return [];
+  }
+}
+
+export async function fetchArenaBenchmark(scenarioId = 'demo_5r_3v') {
+  try {
+    const res = await fetch(`${API_BASE}/api/arena/${scenarioId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function fetchRouteDiff(requestId = 'R2') {
+  try {
+    const res = await fetch(`${API_BASE}/api/diff/${requestId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`Fetch route diff for ${requestId} failed:`, err);
+    return null;
+  }
 }

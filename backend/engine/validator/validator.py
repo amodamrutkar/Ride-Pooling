@@ -218,16 +218,39 @@ def validate(
         if direct_time_s is None or direct_time_s <= 0:
             direct_time_s = max(1.0, ride_time)
 
-        # Ride-time cap: (1 + detour_cap) * T_direct
-        max_allowed_ride_time = (1.0 + req.detour_cap) * direct_time_s
-        detour_pct = max(0.0, (ride_time - direct_time_s) / direct_time_s * 100.0)
+        # Direct distance and trip distance boundaries
+        if config:
+            enforce_min = getattr(config, "enforce_min_trip_distance", False) if hasattr(config, "enforce_min_trip_distance") else config.get("enforce_min_trip_distance", False)
+            min_dist = getattr(config, "min_trip_distance_m", 500.0) if hasattr(config, "min_trip_distance_m") else config.get("min_trip_distance_m", 500.0)
+            max_dist = getattr(config, "max_trip_distance_m", 35000.0) if hasattr(config, "max_trip_distance_m") else config.get("max_trip_distance_m", 35000.0)
+            trip_dist = req.direct_dist_m
+            if trip_dist is None and matrix:
+                _, trip_dist = matrix.pair(req.pickup, req.drop)
+            if trip_dist is not None:
+                if enforce_min and trip_dist < min_dist:
+                    violations.append(f"TRIP_DISTANCE_TOO_SHORT: Request {rider_id} distance {trip_dist:.0f}m is below min {min_dist:.0f}m")
+                if trip_dist > max_dist:
+                    violations.append(f"TRIP_DISTANCE_TOO_LONG: Request {rider_id} distance {trip_dist:.0f}m exceeds max {max_dist:.0f}m")
+
+        # Ride-time cap with safe short-trip slack
+        # Prevents division-by-zero or exaggerated detour penalties on small direct times
+        safe_direct_time_s = max(1.0, direct_time_s)
+        short_slack = 0.0
+        if config and isinstance(config, dict):
+            short_slack = config.get("short_trip_absolute_slack_s", 0.0)
+        elif config and hasattr(config, "short_trip_absolute_slack_s"):
+            short_slack = getattr(config, "short_trip_absolute_slack_s", 0.0)
+
+        allowed_detour_s = max(req.detour_cap * safe_direct_time_s, short_slack)
+        max_allowed_ride_time = safe_direct_time_s + allowed_detour_s
+        detour_pct = max(0.0, (ride_time - safe_direct_time_s) / safe_direct_time_s * 100.0)
 
         # Tolerance of 0.1s to avoid float precision false positives
         if ride_time > max_allowed_ride_time + 0.1:
-            allowed_pct = req.detour_cap * 100.0
+            allowed_pct = (allowed_detour_s / safe_direct_time_s) * 100.0
             violations.append(
                 f"DETOUR_EXCEEDED: Request {rider_id} detour {detour_pct:.1f}% > cap {allowed_pct:.1f}% "
-                f"(ride_time={ride_time:.1f}s, max_allowed={max_allowed_ride_time:.1f}s, direct={direct_time_s:.1f}s)"
+                f"(ride_time={ride_time:.1f}s, max_allowed={max_allowed_ride_time:.1f}s, direct={safe_direct_time_s:.1f}s)"
             )
 
         per_rider[rider_id] = RiderValidation(

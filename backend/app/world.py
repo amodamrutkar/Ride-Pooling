@@ -15,11 +15,19 @@ from typing import Any, Callable, Optional
 
 from backend.app.models import (
     DispatchResult,
+    DistanceConfig,
+    EtaDetails,
     FareBreakdown,
     FairnessAudit,
     FlushReason,
+    GpsAlertSummary,
+    GpsIntegrityResult,
+    GpsObservationStatus,
+    GpsReasonCode,
+    GpsRiskLevel,
     IndividualRationalityAudit,
     LatLon,
+    LocationUpdate,
     Metrics,
     RejectReason,
     Request,
@@ -29,6 +37,8 @@ from backend.app.models import (
     Scenario,
     Stop,
     StopType,
+    TrafficMode,
+    TrafficScenarioConfig,
     Vehicle,
     WindowState,
 )
@@ -40,11 +50,14 @@ from backend.engine.dispatch.greedy_fcfs import GreedyFcfsDispatcher
 from backend.engine.dispatch.hybrid import HybridDispatcher
 from backend.engine.dispatch.loud_insertion import LoudInsertionDispatcher
 from backend.engine.dispatch.solo import SoloDispatcher
+from backend.engine.integrity.gps_verifier import GpsIntegrityVerifier
 from backend.engine.metrics.metrics import compute_metrics
 from backend.engine.pricing.shapley import compute_fares
 from backend.engine.routing.fallback_provider import FallbackMatrixProvider
 from backend.engine.routing.matrix_provider import MatrixProvider
+from backend.engine.routing.traffic_provider import TrafficMatrixProvider
 from backend.engine.sim.clock import SimClock
+from backend.engine.sim.eta_service import EtaService
 from backend.engine.sim.vehicle_motion import EventType, check_stop_events, interpolate_position
 from backend.engine.validator.validator import validate, validate_route_plan
 
@@ -57,10 +70,16 @@ class World:
         matrix_provider: Optional[MatrixProvider] = None,
         db_path: str = "backend/data/pooliq.db",
     ) -> None:
-        self.matrix = matrix_provider or FallbackMatrixProvider()
+        self.base_matrix = matrix_provider or FallbackMatrixProvider()
+        self.traffic_provider = TrafficMatrixProvider(self.base_matrix)
+        self.matrix = self.traffic_provider
         self.clock = SimClock(speed=1)
         self.batcher = WindowBatcher(window_s=30.0, n_max=12, urgency_margin_s=20.0)
         self.persistence = PersistenceManager(db_path=db_path)
+
+        self.distance_config = DistanceConfig()
+        self.gps_verifier = GpsIntegrityVerifier()
+        self.eta_service = EtaService()
 
         self.vehicles: dict[str, Vehicle] = {}
         self.requests: dict[str, Request] = {}
@@ -118,10 +137,17 @@ class World:
         self._vehicle_last_stop_seq.clear()
         self.batcher = WindowBatcher(window_s=30.0, n_max=12, urgency_margin_s=20.0)
         self.persistence.clear()
+        self.eta_service.reset()
 
-        # Load vehicles
+        # Load vehicles and seed trusted GPS positions
         for v in scenario.vehicles:
             self.vehicles[v.id] = v
+            self.gps_verifier.set_trusted_initial_position(
+                entity_id=v.id,
+                position=v.position,
+                server_time=self.clock.now(),
+                route=v.route,
+            )
 
         # Populate direct distances and times
         for req in scenario.requests:
@@ -305,6 +331,7 @@ class World:
                     self.requests,
                     mat,
                     vehicle_state=self.vehicles.get(plan.vehicle_id),
+                    config=self.distance_config,
                 ),
             )
             try:
@@ -336,6 +363,7 @@ class World:
                 requests=self.requests,
                 matrix=self.matrix,
                 vehicle_state=veh,
+                config=self.distance_config,
             )
             plan.validation = report
 
@@ -347,6 +375,7 @@ class World:
                 prev_version = veh.route.version if veh.route else 0
                 plan.version = prev_version + 1
                 veh.route = plan
+                self.gps_verifier.set_active_route(veh.id, plan)
                 committed_plans.append(plan)
 
                 # Update requests
@@ -358,6 +387,8 @@ class World:
                         req.vehicle_id = veh.id
                         if req_id not in assigned_ids:
                             assigned_ids.append(req_id)
+                    if stop.type == StopType.DROP:
+                        self.eta_service.record_initial_commitment(req_id, stop.eta_s)
                         
                         # Store diff
                         old_route = before_plan.model_dump() if before_plan else None
@@ -574,18 +605,102 @@ class World:
             dist_fn=lambda p1, p2: self.matrix.pair(p1, p2)[1],
         )
 
+    def submit_location_update(self, update: LocationUpdate) -> GpsIntegrityResult:
+        """Process incoming GPS observation from a driver or passenger device."""
+        now_server = self.clock.now()
+        assigned_route = None
+        veh_id = update.vehicle_id or update.entity_id
+        if veh_id in self.vehicles and self.vehicles[veh_id].route:
+            assigned_route = self.vehicles[veh_id].route
+
+        result = self.gps_verifier.verify_location(
+            update=update,
+            current_server_time=now_server,
+            assigned_route=assigned_route,
+        )
+
+        # If observation is accepted, update vehicle live position
+        if result.status != GpsObservationStatus.QUARANTINED and veh_id in self.vehicles:
+            self.vehicles[veh_id].position = result.trusted_position
+
+        self._update_cache()
+        return result
+
+    def get_gps_integrity(self, entity_id: str) -> Optional[dict[str, Any]]:
+        return self.gps_verifier.get_entity_state(entity_id)
+
+    def get_fraud_alerts(self, limit: int = 50) -> list[GpsAlertSummary]:
+        return self.gps_verifier.get_alerts(limit=limit)
+
+    def get_distance_config(self) -> DistanceConfig:
+        return self.distance_config
+
+    def update_distance_config(self, config: DistanceConfig) -> DistanceConfig:
+        self.distance_config = config
+        self._update_cache()
+        return self.distance_config
+
+    def set_traffic_scenario(
+        self,
+        mode: TrafficMode,
+        seed: int = 42,
+        corridor_focus: Optional[str] = None,
+    ) -> TrafficScenarioConfig:
+        self.traffic_provider.set_scenario(mode, seed=seed, corridor_focus=corridor_focus)
+        self._update_cache()
+        return self.traffic_provider.config
+
+    def get_traffic_status(self) -> dict[str, Any]:
+        return {
+            "mode": self.traffic_provider.mode.value,
+            "multiplier": self.traffic_provider.multiplier,
+            "source": self.traffic_provider.name,
+        }
+
     def _build_state_dict(self) -> dict[str, Any]:
         """Build full dictionary representation of simulation state."""
         now_s = self.clock.now()
+        vehicles_data = []
+        for v in self.vehicles.values():
+            v_dict = v.model_dump()
+            trusted = self.gps_verifier.get_trusted_position(v.id)
+            v_dict["trusted_position"] = trusted.model_dump() if trusted else v_dict["position"]
+            v_dict["gps_status"] = self.gps_verifier.get_entity_state(v.id) or {
+                "status": "ACCEPTED",
+                "confidence": "HIGH",
+            }
+            vehicles_data.append(v_dict)
+
+        etas_data = {}
+        for r_id, r in self.requests.items():
+            veh = self.vehicles.get(r.vehicle_id) if r.vehicle_id else None
+            eta_info = self.eta_service.compute_request_eta(
+                request=r,
+                assigned_vehicle=veh,
+                matrix=self.matrix,
+                now_s=now_s,
+                traffic_mode=self.traffic_provider.mode,
+                traffic_source=self.traffic_provider.name,
+            )
+            etas_data[r_id] = eta_info.model_dump()
+
         return {
             "sim_time": round(now_s, 1),
             "clock_speed": self.clock.speed,
             "paused": self.clock.paused,
-            "vehicles": [v.model_dump() for v in self.vehicles.values()],
+            "vehicles": vehicles_data,
             "requests": [r.model_dump() for r in self.requests.values()],
             "window": self.batcher.state(now_s).model_dump(),
             "metrics": self.metrics.model_dump(),
             "last_dispatch": self.last_dispatch_result.model_dump() if self.last_dispatch_result else None,
+            "config": self.distance_config.model_dump(),
+            "traffic": {
+                "mode": self.traffic_provider.mode.value,
+                "multiplier": self.traffic_provider.multiplier,
+                "source": self.traffic_provider.name,
+            },
+            "gps_alerts": [a.model_dump() for a in self.gps_verifier.get_alerts(limit=25)],
+            "etas": etas_data,
         }
 
     def _update_cache(self) -> None:

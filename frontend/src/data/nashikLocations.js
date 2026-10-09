@@ -1,356 +1,154 @@
-// Real Nashik locations curated from nashik-all.csv
-export const NASHIK_LOCATIONS = [
+// Nashik Geographic Nodes, Corridors, and Mock Telemetry
+export const NASHIK_HUBS = [
+  { id: "cbs", name: "CBS Chowk, Nashik", shortName: "CBS Chowk", lat: 19.9977, lon: 73.7803, tag: "Central Terminal" },
+  { id: "college_rd", name: "College Road", shortName: "College Rd", lat: 20.0046, lon: 73.7628, tag: "Commercial/Academic" },
+  { id: "gangapur_rd", name: "Gangapur Road", shortName: "Gangapur Rd", lat: 20.0300, lon: 73.7122, tag: "Residential/Corridor" },
+  { id: "panchavati", name: "Panchavati", shortName: "Panchavati", lat: 20.0069, lon: 73.7930, tag: "Heritage Hub" },
+  { id: "dwarka", name: "Dwarka Circle", shortName: "Dwarka", lat: 19.9931, lon: 73.8037, tag: "Transit Junction" },
+  { id: "indira_nagar", name: "Indira Nagar", shortName: "Indira Nagar", lat: 19.9742, lon: 73.7819, tag: "South Suburb" },
+  { id: "satpur_midc", name: "Satpur MIDC", shortName: "Satpur MIDC", lat: 19.9974, lon: 73.7213, tag: "Industrial Tech" },
+  { id: "nashik_road", name: "Nashik Road Station", shortName: "Nashik Rd", lat: 19.9472, lon: 73.8421, tag: "Railway Terminal" },
+  { id: "deolali", name: "Deolali Camp", shortName: "Deolali", lat: 19.8901, lon: 73.8265, tag: "Cantonment Zone" },
+  { id: "cidco", name: "CIDCO", shortName: "CIDCO", lat: 19.9727, lon: 73.7579, tag: "Urban Sector" },
+  { id: "ambad_midc", name: "Ambad MIDC", shortName: "Ambad", lat: 19.9515, lon: 73.7362, tag: "Industrial Belt" },
+  { id: "mumbai_naka", name: "Mumbai Naka", shortName: "Mumbai Naka", lat: 19.9878, lon: 73.7825, tag: "Express Link" },
+  { id: "ashok_stambh", name: "Ashok Stambh", shortName: "Ashok Stambh", lat: 20.0020, lon: 73.7870, tag: "Civic Center" },
+  { id: "navashya", name: "Navashya Ganpati Ghat", shortName: "Navashya", lat: 20.0165, lon: 73.7422, tag: "Riverfront" },
+  { id: "kapila", name: "Kapila Sangam Ghat", shortName: "Kapila Sangam", lat: 19.9984, lon: 73.8143, tag: "Riverfront Link" }
+];
+
+export const CORRIDORS = [
   {
-    "id": "cbs",
-    "name": "Central Bus Stand (CBS)",
-    "category": "Transit Hub",
-    "lat": 19.9977,
-    "lon": 73.7803
+    id: "mh-15",
+    name: "Corridor MH-15",
+    code: "MH-15 Central",
+    subtitle: "Central Spine",
+    color: "#0ED4A8",
+    category: "express high",
+    matchRate: 84,
+    status: "Active",
+    stops: ["CBS Chowk", "College Rd", "Gangapur Road"],
+    liveVehicles: 6,
+    avgWait: "2m 10s",
+    path: [
+      [19.9977, 73.7803],
+      [20.0046, 73.7628],
+      [20.0175, 73.7410],
+      [20.0300, 73.7122]
+    ]
   },
   {
-    "id": "nashik_road",
-    "name": "Nashik Road Railway Station",
-    "category": "Transit Hub",
-    "lat": 19.9472,
-    "lon": 73.8421
+    id: "mh-09",
+    name: "Corridor MH-09",
+    code: "MH-09 Tech",
+    subtitle: "Tech Mid-Town",
+    color: "#38bdf8",
+    category: "high",
+    matchRate: 79,
+    status: "Active",
+    stops: ["Satpur MIDC", "CIDCO", "Indira Nagar"],
+    liveVehicles: 5,
+    avgWait: "3m 40s",
+    path: [
+      [19.9974, 73.7213],
+      [19.9727, 73.7579],
+      [19.9742, 73.7819]
+    ]
   },
   {
-    "id": "college_road",
-    "name": "College Road",
-    "category": "Commercial",
-    "lat": 20.0074,
-    "lon": 73.7582
-  },
-  {
-    "id": "gangapur_road",
-    "name": "Gangapur Road",
-    "category": "Commercial",
-    "lat": 20.0119,
-    "lon": 73.759
-  },
-  {
-    "id": "panchavati",
-    "name": "Panchavati (Godavari Ghats)",
-    "category": "Heritage",
-    "lat": 20.0127,
-    "lon": 73.7873
-  },
-  {
-    "id": "ramkund",
-    "name": "Ramkund",
-    "category": "Heritage",
-    "lat": 20.008,
-    "lon": 73.792
-  },
-  {
-    "id": "dwarka",
-    "name": "Dwarka Circle",
-    "category": "Transit Hub",
-    "lat": 19.9952,
-    "lon": 73.7961
-  },
-  {
-    "id": "satpur",
-    "name": "Satpur MIDC Industrial Area",
-    "category": "Industrial",
-    "lat": 20.0119,
-    "lon": 73.7082
-  },
-  {
-    "id": "ambad",
-    "name": "Ambad MIDC Industrial Zone",
-    "category": "Industrial",
-    "lat": 19.9515,
-    "lon": 73.7362
-  },
-  {
-    "id": "city_center",
-    "name": "City Center Mall",
-    "category": "Commercial",
-    "lat": 19.9905,
-    "lon": 73.763
-  },
-  {
-    "id": "shalimar",
-    "name": "Shalimar Chowk",
-    "category": "Commercial",
-    "lat": 19.9994,
-    "lon": 73.7901
-  },
-  {
-    "id": "mumbai_naka",
-    "name": "Mumbai Naka",
-    "category": "Transit Hub",
-    "lat": 19.9876,
-    "lon": 73.7839
-  },
-  {
-    "id": "indira_nagar",
-    "name": "Indira Nagar",
-    "category": "Residential",
-    "lat": 19.9635,
-    "lon": 73.7821
-  },
-  {
-    "id": "govind_nagar",
-    "name": "Govind Nagar",
-    "category": "Residential",
-    "lat": 19.9826,
-    "lon": 73.7819
-  },
-  {
-    "id": "mahatma_nagar",
-    "name": "Mahatma Nagar",
-    "category": "Residential",
-    "lat": 19.997,
-    "lon": 73.7529
-  },
-  {
-    "id": "cidco",
-    "name": "CIDCO Bus Terminal",
-    "category": "Transit Hub",
-    "lat": 19.9789,
-    "lon": 73.7568
-  },
-  {
-    "id": "trimurti_chowk",
-    "name": "Trimurti Chowk",
-    "category": "Commercial",
-    "lat": 19.9864,
-    "lon": 73.7554
-  },
-  {
-    "id": "canada_corner",
-    "name": "Canada Corner",
-    "category": "Commercial",
-    "lat": 20.0043,
-    "lon": 73.7706
-  },
-  {
-    "id": "kthm",
-    "name": "KTHM College Campus",
-    "category": "Education",
-    "lat": 20.0076,
-    "lon": 73.7768
-  },
-  {
-    "id": "ashok_stambh",
-    "name": "Ashok Stambh",
-    "category": "Commercial",
-    "lat": 20.0066,
-    "lon": 73.7846
-  },
-  {
-    "id": "jehan_circle",
-    "name": "Jehan Circle",
-    "category": "Commercial",
-    "lat": 20.0119,
-    "lon": 73.7553
-  },
-  {
-    "id": "abb_circle",
-    "name": "ABB Circle",
-    "category": "Commercial",
-    "lat": 19.9935,
-    "lon": 73.7524
-  },
-  {
-    "id": "someshwar",
-    "name": "Someshwar Waterfall & Temple",
-    "category": "Heritage",
-    "lat": 20.0231,
-    "lon": 73.7278
-  },
-  {
-    "id": "deolali",
-    "name": "Deolali Camp Cantonment",
-    "category": "Residential",
-    "lat": 19.9174,
-    "lon": 73.8331
-  },
-  {
-    "id": "pathardi",
-    "name": "Pathardi Phata",
-    "category": "Transit Hub",
-    "lat": 19.95,
-    "lon": 73.78
-  },
-  {
-    "id": "makhmalabad",
-    "name": "Makhmalabad",
-    "category": "Residential",
-    "lat": 20.045,
-    "lon": 73.79
-  },
-  {
-    "id": "muktidham",
-    "name": "Muktidham Temple",
-    "category": "Heritage",
-    "lat": 19.951,
-    "lon": 73.8375
-  },
-  {
-    "id": "adgaon",
-    "name": "Adgaon Naka (Agra Highway)",
-    "category": "Transit Hub",
-    "lat": 20.0524,
-    "lon": 73.883
-  },
-  {
-    "id": "rane_nagar",
-    "name": "Rane Nagar",
-    "category": "Residential",
-    "lat": 19.9702,
-    "lon": 73.7725
-  },
-  {
-    "id": "mico_circle",
-    "name": "Mico Circle",
-    "category": "Industrial",
-    "lat": 19.9855,
-    "lon": 73.778
-  },
-  {
-    "id": "loc_31",
-    "name": "Ahilyaram Temple",
-    "category": "Mandir / Temple",
-    "lat": 20.00778,
-    "lon": 73.79262
-  },
-  {
-    "id": "loc_32",
-    "name": "Ardha Nari Shiv Mandir",
-    "category": "Mandir / Temple",
-    "lat": 20.00801,
-    "lon": 73.79265
-  },
-  {
-    "id": "loc_33",
-    "name": "Arya Samaj Mandir",
-    "category": "Mandir / Temple",
-    "lat": 20.00983,
-    "lon": 73.79223
-  },
-  {
-    "id": "loc_34",
-    "name": "Balaji Mandir",
-    "category": "Mandir / Temple",
-    "lat": 20.00561,
-    "lon": 73.79186
-  },
-  {
-    "id": "loc_35",
-    "name": "Datta Mandir",
-    "category": "Mandir / Temple",
-    "lat": 20.00513,
-    "lon": 73.79191
-  },
-  {
-    "id": "loc_36",
-    "name": "Datta Mandir, Shivtirth",
-    "category": "Mandir / Temple",
-    "lat": 19.99532,
-    "lon": 73.77612
-  },
-  {
-    "id": "loc_37",
-    "name": "Indreshwar Mahadev Temple",
-    "category": "Mandir / Temple",
-    "lat": 20.00374,
-    "lon": 73.79262
-  },
-  {
-    "id": "loc_38",
-    "name": "KaalBhairav Mandir",
-    "category": "Mandir / Temple",
-    "lat": 20.00591,
-    "lon": 73.79321
-  },
-  {
-    "id": "loc_39",
-    "name": "Kalaram mandir nashik",
-    "category": "Mandir / Temple",
-    "lat": 19.99936,
-    "lon": 73.79008
-  },
-  {
-    "id": "loc_40",
-    "name": "Mahadev mandir",
-    "category": "Mandir / Temple",
-    "lat": 20.00823,
-    "lon": 73.79311
-  },
-  {
-    "id": "loc_41",
-    "name": "Mahanubhav Mandir",
-    "category": "Mandir / Temple",
-    "lat": 20.00837,
-    "lon": 73.79097
-  },
-  {
-    "id": "loc_42",
-    "name": "Mandharchi Kalubai Devi Mandir",
-    "category": "Mandir / Temple",
-    "lat": 20.0158,
-    "lon": 73.79371
-  },
-  {
-    "id": "loc_43",
-    "name": "Modkeshwar Temple",
-    "category": "Mandir / Temple",
-    "lat": 19.9738,
-    "lon": 73.78313
-  },
-  {
-    "id": "loc_44",
-    "name": "Muktidham Mandir",
-    "category": "Mandir / Temple",
-    "lat": 19.95161,
-    "lon": 73.83671
-  },
-  {
-    "id": "loc_45",
-    "name": "Murlidhar Mandir",
-    "category": "Mandir / Temple",
-    "lat": 20.00667,
-    "lon": 73.79355
+    id: "mh-03",
+    name: "Corridor MH-03",
+    code: "MH-03 Link",
+    subtitle: "Station Link",
+    color: "#9d86e9",
+    category: "express",
+    matchRate: 91,
+    status: "Active",
+    stops: ["Nashik Road Station", "Dwarka", "CBS Chowk"],
+    liveVehicles: 7,
+    avgWait: "1m 45s",
+    path: [
+      [19.9472, 73.8421],
+      [19.9931, 73.8037],
+      [19.9977, 73.7803]
+    ]
   }
 ];
 
-
-export function calculateDirectDistanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const crowKm = R * c;
-  // Circuity factor for Nashik urban street network: 1.35x
-  return Math.max(1.2, Number((crowKm * 1.35).toFixed(1)));
-}
-
-export function estimateDirectMinutes(distKm) {
-  // Avg urban speed in Nashik ~ 24 km/h (2.5 mins per km) + 2 min pickup buffer
-  return Math.max(4, Math.round(distKm * 2.5 + 2));
-}
-
-export function estimateFares(distKm) {
-  // Base fare ₹30 + ₹12/km
-  const solo = Math.round(30 + distKm * 12);
-  // Pooled Shapley discount ~ 22% - 28%
-  const pooledMin = Math.round(solo * 0.72);
-  const pooledMax = Math.round(solo * 0.78);
-  const equalSplit = Math.round(solo * 0.85);
-  return {
-    solo,
-    pooledMin,
-    pooledMax,
-    equalSplit,
-    savedPct: Math.round(((solo - pooledMin) / solo) * 100)
-  };
-}
+export const FLEET_VEHICLES = [
+  {
+    id: "V1",
+    model: "Tata Tigor EV",
+    license: "IN-MH15-8821",
+    status: "transit",
+    statusLabel: "IN TRANSIT (LIVE POOL)",
+    routeVector: "Near CBS Chowk ➔ College Rd",
+    speed: "32 km/h",
+    soc: "84%",
+    driver: "Sunil Shinde",
+    seatsTotal: 4,
+    seatsOccupied: 3,
+    lat: 20.0012,
+    lon: 73.7715
+  },
+  {
+    id: "V2",
+    model: "Mahindra e-Verito",
+    license: "IN-MH15-4109",
+    status: "transit",
+    statusLabel: "IN TRANSIT",
+    routeVector: "Satpur MIDC ➔ CIDCO",
+    speed: "41 km/h",
+    soc: "62%",
+    driver: "Ramesh Pawar",
+    seatsTotal: 4,
+    seatsOccupied: 2,
+    lat: 19.9850,
+    lon: 73.7396
+  },
+  {
+    id: "V3",
+    model: "Tata Nexon EV",
+    license: "IN-MH15-9944",
+    status: "terminal",
+    statusLabel: "AT TERMINAL (CBS)",
+    routeVector: "Staged at CBS Terminal 2",
+    speed: "0 km/h",
+    soc: "95%",
+    driver: "Ganesh Patil",
+    seatsTotal: 4,
+    seatsOccupied: 0,
+    lat: 19.9977,
+    lon: 73.7803
+  },
+  {
+    id: "V4",
+    model: "MG ZS EV",
+    license: "IN-MH15-6218",
+    status: "transit",
+    statusLabel: "IN TRANSIT (EXPRESS)",
+    routeVector: "Nashik Rd ➔ Dwarka Circle",
+    speed: "48 km/h",
+    soc: "71%",
+    driver: "Vikram Kulkarni",
+    seatsTotal: 4,
+    seatsOccupied: 4,
+    lat: 19.9701,
+    lon: 73.8229
+  },
+  {
+    id: "V5",
+    model: "Tata Tigor EV",
+    license: "IN-MH15-1123",
+    status: "maintenance",
+    statusLabel: "MAINTENANCE / DEPOT",
+    routeVector: "Depot Charging Station Ambad",
+    speed: "0 km/h",
+    soc: "31%",
+    driver: "Depot Staff",
+    seatsTotal: 4,
+    seatsOccupied: 0,
+    lat: 19.9515,
+    lon: 73.7362
+  }
+];

@@ -48,10 +48,13 @@
 - [x] **Fair Pricing Engine** (`backend/engine/pricing/`): Connected exact bitmask DP and Monte-Carlo Shapley cost allocator with fairness axioms in `World._update_fares()`.
 - [x] **Operational Metrics Engine** (`backend/engine/metrics/`): Integrated aggregate KPIs in `World._recompute_metrics()`.
 - [x] **Vehicle Kinematics & Stop Events** (`backend/engine/sim/vehicle_motion.py`): Integrated into `World.tick()`.
-- [x] **Full Test Suite & E2E Verification**: 98/98 tests passing with zero failures.
+- [x] **Feature A: GPS Integrity & Location Fraud Detection** (`backend/engine/telemetry/gps_integrity.py`): Configurable checks for impossible speed, teleportation, road mismatch, timestamp manipulation, and repeated anomalies with quarantine retention.
+- [x] **Feature B: Configurable Distance-Aware Ride Pooling** (`backend/engine/dispatch/`): Bounded adaptive candidate search, short-trip pooling eligibility with detour slack protection, min/max trip distance validation.
+- [x] **Feature C: Traffic-Aware ETA & Driver Lateness** (`backend/engine/routing/`): Separated independent ETAs, traffic multiplier scenarios (Normal, Fast, Moderate, Severe 50% delay, Sudden Slowdown), high-delay operational warnings.
+- [x] **Feature D: Complete Frontend Rebuild & Leaflet Dark Maps**: Rebuilt from scratch per `stitch_pooliq_ride_pooling_app_ui.zip` and `DESIGN.md`. Leaflet maps integrated on every view (Request, Matching Queue radar, Active Ride tracking, Routes corridor network, Fleet spatial cluster).
+- [x] **Feature E: Full-Stack UI/UX Wiring Audit** (`docs/ui-backend-audit.md`): 30+ interactive UI elements mapped to backend endpoints, handlers, state mutations, and test verifications.
+- [x] **Full Test Suite & E2E Verification**: 117/117 tests passing (`pytest backend/tests/ -v`).
 
-### Pending
-- [ ] Integration of Frontend React UI & MapLibre Dashboard (`frontend/` - Nakul).
 
 ## Spandan (Optimization Core Lead)
 

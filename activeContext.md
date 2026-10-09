@@ -14,7 +14,8 @@ Set up the complete repository structure, tooling, simulation layer, scenario ge
   - `FallbackMatrixProvider`: Deterministic Haversine distance with Nashik urban circuity factor (1.35) and 25 km/h urban speed. Zero external dependencies required during local dev or CI.
   - OSRM client support with pre-caching mechanism (`scripts/precache_matrix.py`).
 - **Vehicle Kinematics:** Linear coordinate interpolation along assigned waypoints with speed constant at 25 km/h.
-- **Frontend Contract:** Pre-generated `mock/state.json` matching PRD §6 `/state` schema so frontend dashboard work is completely unblocked.
+- **Frontend & UI Stack:** Rebuilt from scratch using React, Vite, Tailwind CSS tokens from `stitch_pooliq_ride_pooling_app_ui.zip` and `DESIGN.md`. Leaflet dark tiles integrated across Request, Matching Queue, Active Ride, Routes, and Fleet.
+- **Backend API Integration:** FastAPI with 117 passing automated unit and integration tests. Full bi-directional wiring audited in `docs/ui-backend-audit.md`.
 - **Build & CI System:** Standard `Makefile` covering setup, test, bench, and clean, backed by GitHub Actions CI workflow.
 
 ### Folder Structure
