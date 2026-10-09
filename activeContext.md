@@ -122,3 +122,23 @@ poolIQ/
 - **Dynamic Pricing (Parth):** Base fare + distance + surge factor based on demand/supply ratio.
 - **Live Metrics (Amod):** Pooling efficiency, detour ratio, SLA compliance, vehicle utilization.
 - **React Frontend (Nakul):** MapLibre GL map, vehicle markers, rider route polylines, operator control panel.
+
+---
+
+## Ketan (Backend Platform, Batcher, Validator & Security Lead)
+
+### Current Objective
+Deliver the platform spine of PoolIQ: independent zero-trust constraint validator, adaptive sliding-window batcher, FastAPI endpoints per PRD §6, World state orchestrator with before/after route diffs, SQLite snapshots, and defense-in-depth security hardening.
+
+### Tech Decisions & Architecture
+- **Independent Validator (`backend/engine/validator/validator.py`):** Pure functional validator completely decoupled from routing/dispatch/optimization libraries. Enforces precedence, vehicle capacity at every stop, pickup arrival windows, and the strict 15% maximum detour rule. Computes per-rider detour % and wait times.
+- **Sliding-Window Batcher (`backend/engine/batching/sliding_window.py`):** Injected-clock state machine supporting TIMER (30s), SIZE (12 requests), and URGENCY flushes (pickup deadline proximity). Includes defer-then-reject rolling horizon logic.
+- **World Orchestrator (`backend/app/world.py`):** Single point of state coordination. Routes are only committed to vehicles if the independent validator passes; if invalid, route versions stay frozen and violating requests are deferred or rejected with clear reason codes.
+- **FastAPI REST Spine (`backend/app/routes.py`, `backend/app/main.py`):**
+  - High speed `/api/state` endpoint (<20ms response time via in-memory pre-serialized state cache).
+  - Admin endpoints (`/api/scenarios/*/load`, `/api/sim/control`) protected via Bearer token.
+  - Geo-fenced input schema bounded to Nashik coordinates [19.8-20.2 lat, 73.6-74.0 lon].
+  - Security headers middleware and rate limiting.
+  - Diff tracking via `/api/diff/{request_id}`.
+- **OpenAPI Documentation:** Auto-exported to `docs/openapi.json`.
+- **Security Documentation:** `docs/security.md` containing threat model matrix and operational guidance.
