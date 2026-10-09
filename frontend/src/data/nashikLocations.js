@@ -22,7 +22,13 @@ export const NASHIK_HUBS = [
   { id: "parijat_nagar", name: "Parijat Nagar", shortName: "Parijat Nagar", lat: 19.9982, lon: 73.7548, tag: "Midtown Residential" },
   { id: "pathardi_phata", name: "Pathardi Phata", shortName: "Pathardi Phata", lat: 19.9405, lon: 73.7658, tag: "South Highway Junction" },
   { id: "jail_road", name: "Jail Road, Nashik Road", shortName: "Jail Road", lat: 19.9580, lon: 73.8325, tag: "Railway Suburban" },
-  { id: "adgaon_naka", name: "Adgaon Naka (Highway Hub)", shortName: "Adgaon Naka", lat: 20.0385, lon: 73.8315, tag: "Highway & Medical Hub" }
+  { id: "adgaon_naka", name: "Adgaon Naka (Highway Hub)", shortName: "Adgaon Naka", lat: 20.0385, lon: 73.8315, tag: "Highway & Medical Hub" },
+  // Verified Academic Campuses & North Nashik Hubs
+  { id: "pvg_coe", name: "PVG's College of Engineering (Dindori Rd, Mhasrul)", shortName: "PVG COE (Nashik)", lat: 20.0369, lon: 73.8007, tag: "Academic Campus" },
+  { id: "meri_mhasrul", name: "MERI Research Institute, Dindori Rd", shortName: "MERI (Dindori Rd)", lat: 20.0270, lon: 73.7995, tag: "Research & Transit" },
+  { id: "kbt_coe", name: "KBT College of Engineering, Gangapur Rd", shortName: "KBT COE", lat: 20.0162, lon: 73.7548, tag: "Academic Hub" },
+  { id: "kkwagh", name: "KK Wagh Institute of Engg, Amrutdham", shortName: "KK Wagh COE", lat: 20.0135, lon: 73.8228, tag: "Academic Campus" },
+  { id: "met_bhujbal", name: "MET Bhujbal Knowledge City, Adgaon", shortName: "MET Campus", lat: 20.0435, lon: 73.8492, tag: "Academic Campus" }
 ];
 
 export const CORRIDORS = [

@@ -130,6 +130,23 @@ const NASHIK_ROAD_MATRIX = {
   "ashok_stambh_navashya": { km: 5.1, min: 13 },
   "ashok_stambh_kapila": { km: 5.7, min: 14 },
   "navashya_kapila": { km: 10.7, min: 26 },
+  // PVG's College of Engineering (Dindori Road, Mhasrul) verified road matrix
+  "pvg_coe_cbs": { km: 6.2, min: 14 },
+  "pvg_coe_panchavati": { km: 4.6, min: 10 },
+  "pvg_coe_gangapur_rd": { km: 7.1, min: 16 },
+  "pvg_coe_college_rd": { km: 6.8, min: 15 },
+  "pvg_coe_dwarka": { km: 7.2, min: 16 },
+  "pvg_coe_nashik_road": { km: 13.9, min: 28 },
+  "pvg_coe_satpur_midc": { km: 11.2, min: 24 },
+  "pvg_coe_indira_nagar": { km: 8.9, min: 20 },
+  "pvg_coe_cidco": { km: 10.1, min: 22 },
+  "pvg_coe_mumbai_naka": { km: 6.9, min: 16 },
+  "pvg_coe_ashok_stambh": { km: 5.5, min: 12 },
+  "pvg_coe_city_centre_mall": { km: 8.3, min: 18 },
+  "pvg_coe_govind_nagar": { km: 8.6, min: 19 },
+  "pvg_coe_meri_mhasrul": { km: 1.2, min: 3 },
+  "pvg_coe_kkwagh": { km: 5.4, min: 12 },
+  "pvg_coe_kbt_coe": { km: 6.4, min: 14 },
 };
 
 /**

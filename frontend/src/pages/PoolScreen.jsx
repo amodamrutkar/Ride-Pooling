@@ -15,17 +15,66 @@ export default function PoolScreen({
   assignedVehicle = null,
   preselectedHubs = null
 }) {
-  // Hubs selection
-  const [originIndex, setOriginIndex] = useState(0); // CBS Chowk
-  const [destIndex, setDestIndex] = useState(2);   // Gangapur Road
+  // Hubs selection: Default to PVG COE (Nashik) or user's saved preference
+  const [originIndex, setOriginIndex] = useState(() => {
+    const saved = localStorage.getItem('pooliq_preferred_hub');
+    if (saved) {
+      const idx = NASHIK_HUBS.findIndex((h) => h.id === saved);
+      if (idx !== -1) return idx;
+    }
+    const pvgIdx = NASHIK_HUBS.findIndex((h) => h.id === 'pvg_coe');
+    return pvgIdx !== -1 ? pvgIdx : 0;
+  });
+  const [destIndex, setDestIndex] = useState(2); // Gangapur Road
 
   // User Live Geolocation State
   const [useLiveLocation, setUseLiveLocation] = useState(false);
   const [liveLocation, setLiveLocation] = useState(null);
   const [isLocating, setIsLocating] = useState(false);
   const [locationStatus, setLocationStatus] = useState('');
+  const [outsideNashikAlert, setOutsideNashikAlert] = useState(null);
 
-  // Handle map click to set custom pinpoint pickup
+  // Search Modal / Popover State for Hubs
+  const [searchModalType, setSearchModalType] = useState(null); // 'pickup' | 'drop' | null
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filtered hubs for the quick location search modal
+  const filteredHubs = useMemo(() => {
+    if (!searchQuery.trim()) return NASHIK_HUBS;
+    const q = searchQuery.toLowerCase().trim();
+    return NASHIK_HUBS.filter(
+      (h) =>
+        h.name.toLowerCase().includes(q) ||
+        h.shortName.toLowerCase().includes(q) ||
+        (h.tag && h.tag.toLowerCase().includes(q))
+    );
+  }, [searchQuery]);
+
+  // 1-Click Set to PVG's College of Engineering (Dindori Road, Mhasrul)
+  const selectPvgAsPickup = () => {
+    const pvgIdx = NASHIK_HUBS.findIndex((h) => h.id === 'pvg_coe');
+    if (pvgIdx !== -1) {
+      const pvg = NASHIK_HUBS[pvgIdx];
+      setOriginIndex(pvgIdx);
+      setLiveLocation({
+        id: 'pvg_coe',
+        name: pvg.name,
+        shortName: pvg.shortName,
+        lat: pvg.lat,
+        lon: pvg.lon,
+        accuracy: 5,
+        isLiveGps: true,
+        isWithinService: true
+      });
+      setUseLiveLocation(true);
+      setOutsideNashikAlert(null);
+      localStorage.setItem('pooliq_preferred_hub', 'pvg_coe');
+      setLocationStatus("📍 Pickup set to PVG's College of Engineering (Dindori Rd, Mhasrul)");
+      setTimeout(() => setLocationStatus(''), 4500);
+    }
+  };
+
+  // Handle map click to set custom pinpoint pickup anywhere in Nashik
   const handleMapClick = (latlng) => {
     if (!latlng) return;
     const clickLat = Number(latlng.lat.toFixed(6));
@@ -42,7 +91,14 @@ export default function PoolScreen({
       }
     }
     const distM = Math.round(minDis * 1000);
-    const shortDesc = distM < 200 ? nearestHub.shortName : `${distM}m from ${nearestHub.shortName}`;
+    
+    // Check if specifically on PVG campus
+    const distToPvg = Math.hypot((20.0369 - clickLat) * 111, (73.8007 - clickLon) * 104) * 1000;
+    const shortDesc = distToPvg < 400
+      ? 'PVG Campus (Dindori Rd)'
+      : distM < 250
+        ? nearestHub.shortName
+        : `${distM}m from ${nearestHub.shortName}`;
 
     const customPinHub = {
       id: 'user_map_pin',
@@ -56,6 +112,7 @@ export default function PoolScreen({
 
     setLiveLocation(customPinHub);
     setUseLiveLocation(true);
+    setOutsideNashikAlert(null);
     setLocationStatus(`📍 Pickup pinned to map near ${nearestHub.shortName}`);
     setTimeout(() => setLocationStatus(''), 4000);
   };
@@ -66,20 +123,20 @@ export default function PoolScreen({
       return;
     }
     setIsLocating(true);
-    setLocationStatus('Requesting GPS location permission...');
+    setLocationStatus('Acquiring high-accuracy GPS fix...');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const rawLat = Number(pos.coords.latitude.toFixed(6));
         const rawLon = Number(pos.coords.longitude.toFixed(6));
         const accuracy = Math.round(pos.coords.accuracy || 15);
 
-        // Distance from Nashik Metropolitan City Center (CBS Chowk: 19.9977, 73.7803)
+        // Distance from Nashik Metropolitan Center (CBS Chowk: 19.9977, 73.7803)
         const dLat = (rawLat - 19.9977) * 111.0;
         const dLon = (rawLon - 73.7803) * 104.0;
         const distFromNashikKm = Math.round(Math.hypot(dLat, dLon));
 
-        // PoolIQ operates exclusively within the Nashik Metropolitan transit network (radius ~28 km)
-        const isWithinNashik = distFromNashikKm <= 28;
+        // PoolIQ operates exclusively within the Nashik Metropolitan transit network (radius ~35 km)
+        const isWithinNashik = distFromNashikKm <= 35;
 
         if (isWithinNashik) {
           // USER IS PHYSICALLY IN NASHIK: Use exact live coordinates
@@ -93,7 +150,14 @@ export default function PoolScreen({
             }
           }
           const distM = Math.round(minDis * 1000);
-          const shortDesc = distM < 200 ? nearestHub.shortName : `${distM}m from ${nearestHub.shortName}`;
+
+          // Check if right at PVG Nashik
+          const distToPvg = Math.hypot((20.0369 - rawLat) * 111, (73.8007 - rawLon) * 104) * 1000;
+          const shortDesc = distToPvg < 500
+            ? 'PVG COE (Nashik)'
+            : distM < 250
+              ? nearestHub.shortName
+              : `${distM}m from ${nearestHub.shortName}`;
 
           const userGpsHub = {
             id: 'user_live_gps',
@@ -109,48 +173,33 @@ export default function PoolScreen({
           setLiveLocation(userGpsHub);
           setUseLiveLocation(true);
           setIsLocating(false);
-          setLocationStatus(`📍 Live GPS locked in Nashik (±${accuracy}m accuracy)`);
+          setOutsideNashikAlert(null);
+          setLocationStatus(`📍 Live GPS locked: ${shortDesc} (±${accuracy}m accuracy)`);
           setTimeout(() => setLocationStatus(''), 4500);
         } else {
-          // USER IS OUTSIDE NASHIK (e.g. testing from Delhi, Mumbai, or remote dev environment)
-          // Snap gracefully to a valid Nashik Metro pickup node so the route and app function properly
-          const fallbackHub = NASHIK_HUBS[originIndex] || NASHIK_HUBS[0];
-          const snappedLat = Number((fallbackHub.lat + 0.0014).toFixed(6));
-          const snappedLon = Number((fallbackHub.lon + 0.0018).toFixed(6));
-
-          const userGpsHub = {
-            id: 'user_live_gps_snapped',
-            name: `Nashik Metro Pickup · near ${fallbackHub.shortName}`,
-            shortName: `Live Pickup · ${fallbackHub.shortName}`,
-            lat: snappedLat,
-            lon: snappedLon,
-            accuracy: 10,
-            isLiveGps: true,
-            isSimulated: true
-          };
-
-          setLiveLocation(userGpsHub);
-          setUseLiveLocation(true);
+          // BROWSER/ISP REPORTED IP OUTSIDE NASHIK (e.g. telecom data center routing via Delhi 1017 km away)
+          // DO NOT force-override their selection with CBS Chowk!
+          // Alert user and offer instant 1-click lock to PVG Nashik or custom pin!
           setIsLocating(false);
-          setLocationStatus(
-            `📍 Device GPS detected ${distFromNashikKm} km outside Nashik. Snapped to Nashik Metro (${fallbackHub.shortName}). Tap map to fine-tune.`
-          );
+          setOutsideNashikAlert({ distanceKm: distFromNashikKm });
+          setLocationStatus('');
         }
       },
       (err) => {
         console.warn('Geolocation error:', err);
         setIsLocating(false);
         if (err.code === 1) {
-          setLocationStatus('Location permission denied. Please allow location access or choose a hub.');
+          setLocationStatus('Location permission denied. Please pick a hub or pin on map.');
         } else if (err.code === 2) {
-          setLocationStatus('GPS position unavailable. Switched to preset hubs.');
+          setLocationStatus('GPS hardware unavailable. Switched to high-precision hubs.');
         } else if (err.code === 3) {
-          setLocationStatus('GPS request timed out. Retrying...');
+          setLocationStatus('GPS request timed out. Please retry or pin on map.');
         } else {
           setLocationStatus('Could not determine current location.');
         }
+        setTimeout(() => setLocationStatus(''), 4000);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
   };
 
@@ -356,7 +405,65 @@ export default function PoolScreen({
           </div>
 
           {/* Location Input Sequence */}
-          <div className="px-4 pt-1 pb-3">
+          <div className="px-4 pt-1 pb-3 flex flex-col gap-2">
+            {/* Out-of-Nashik ISP Alert Banner with 1-click PVG lock */}
+            {outsideNashikAlert && (
+              <div className="bg-[#F3F2EF] border border-[#DCDAD4] p-3 rounded-xl flex flex-col gap-2.5 shadow-sm animate-fade-in">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[17px] text-[#52584A]">near_me_disabled</span>
+                    <span className="font-mono text-xs font-bold text-on-surface">
+                      ISP Geolocation ({outsideNashikAlert.distanceKm} km away)
+                    </span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setOutsideNashikAlert(null)}
+                    className="text-on-surface-variant hover:text-on-surface text-xs font-bold cursor-pointer p-0.5"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                  Your network IP resolved outside Nashik. If you are currently at <strong>PVG Nashik Campus</strong>, lock your exact spot below:
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={selectPvgAsPickup}
+                    className="px-3 py-1.5 rounded-lg bg-[#52584A] text-[#FAF9F6] text-xs font-bold font-mono flex items-center gap-1.5 hover:bg-[#3D4236] transition-all cursor-pointer shadow-xs"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse"></span>
+                    <span>📍 Lock PVG Nashik (Campus)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const idx = NASHIK_HUBS.findIndex(h => h.id === 'college_rd');
+                      if (idx !== -1) setOriginIndex(idx);
+                      setUseLiveLocation(false);
+                      setOutsideNashikAlert(null);
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium cursor-pointer transition-all border border-surface-container-highest/60"
+                  >
+                    🎓 College Rd
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const idx = NASHIK_HUBS.findIndex(h => h.id === 'cbs');
+                      if (idx !== -1) setOriginIndex(idx);
+                      setUseLiveLocation(false);
+                      setOutsideNashikAlert(null);
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium cursor-pointer transition-all border border-surface-container-highest/60"
+                  >
+                    🏛️ CBS Chowk
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="relative flex flex-col gap-2 bg-surface-container-low p-2.5 rounded-xl border border-surface-container-high/60 shadow-md">
               {/* Origin Node */}
               <div className="relative flex items-center h-12 bg-surface-container-high rounded-lg px-3 transition-all">
@@ -377,20 +484,36 @@ export default function PoolScreen({
                         GPS: {liveLocation.lat.toFixed(4)}, {liveLocation.lon.toFixed(4)} (±{liveLocation.accuracy}m)
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setUseLiveLocation(false)}
-                      className="font-label-mono text-[10px] text-primary hover:underline font-semibold cursor-pointer whitespace-nowrap ml-2"
-                    >
-                      Choose Hub
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchModalType('pickup');
+                          setSearchQuery('');
+                        }}
+                        className="font-label-mono text-[10px] text-primary hover:underline font-semibold cursor-pointer whitespace-nowrap"
+                      >
+                        Search
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUseLiveLocation(false)}
+                        className="font-label-mono text-[10px] text-outline hover:text-on-surface font-semibold cursor-pointer whitespace-nowrap"
+                      >
+                        Presets
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <>
                     <div className="flex flex-col min-w-0 flex-1">
                       <select
                         value={originIndex}
-                        onChange={(e) => setOriginIndex(Number(e.target.value))}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setOriginIndex(val);
+                          localStorage.setItem('pooliq_preferred_hub', NASHIK_HUBS[val]?.id || 'cbs');
+                        }}
                         className="bg-transparent text-on-surface font-body-md text-sm font-semibold focus:outline-none cursor-pointer"
                       >
                         {NASHIK_HUBS.map((hub, idx) => (
@@ -400,6 +523,17 @@ export default function PoolScreen({
                         ))}
                       </select>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchModalType('pickup');
+                        setSearchQuery('');
+                      }}
+                      className="p-1 rounded hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-all cursor-pointer mr-1"
+                      title="Search all Nashik hubs"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">search</span>
+                    </button>
                     <button
                       type="button"
                       onClick={handleFetchLiveLocation}
@@ -448,12 +582,225 @@ export default function PoolScreen({
                     ))}
                   </select>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchModalType('drop');
+                    setSearchQuery('');
+                  }}
+                  className="p-1 rounded hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-all cursor-pointer mr-1"
+                  title="Search destination hubs"
+                >
+                  <span className="material-symbols-outlined text-[16px]">search</span>
+                </button>
                 <span className="font-label-mono text-label-mono text-outline uppercase tracking-wider text-[10px]">
                   Drop
                 </span>
               </div>
             </div>
+
+            {/* Quick Location Selection Pills */}
+            <div className="flex items-center gap-1.5 pt-0.5 overflow-x-auto no-scrollbar">
+              <span className="font-label-mono text-[9px] uppercase tracking-wider text-outline shrink-0 font-bold">
+                QUICK PICK:
+              </span>
+              <button
+                type="button"
+                onClick={selectPvgAsPickup}
+                className={`px-2.5 py-1 rounded-full font-mono text-[10.5px] font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+                  originHub.id === 'pvg_coe'
+                    ? 'bg-[#52584A] text-[#FAF9F6] border-[#52584A]'
+                    : 'bg-surface-container-high hover:bg-surface-container-highest text-on-surface border-surface-container-highest/80'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse"></span>
+                <span>📍 PVG Nashik</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = NASHIK_HUBS.findIndex(h => h.id === 'college_rd');
+                  if (idx !== -1) {
+                    setOriginIndex(idx);
+                    setUseLiveLocation(false);
+                    localStorage.setItem('pooliq_preferred_hub', 'college_rd');
+                  }
+                }}
+                className={`px-2 py-1 rounded-full font-mono text-[10px] font-medium shrink-0 transition-all cursor-pointer border ${
+                  originHub.id === 'college_rd'
+                    ? 'bg-[#52584A] text-[#FAF9F6] border-[#52584A]'
+                    : 'bg-surface-container-high hover:bg-surface-container-highest text-on-surface border-surface-container-highest/60'
+                }`}
+              >
+                🎓 College Rd
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = NASHIK_HUBS.findIndex(h => h.id === 'gangapur_rd');
+                  if (idx !== -1) {
+                    setOriginIndex(idx);
+                    setUseLiveLocation(false);
+                    localStorage.setItem('pooliq_preferred_hub', 'gangapur_rd');
+                  }
+                }}
+                className={`px-2 py-1 rounded-full font-mono text-[10px] font-medium shrink-0 transition-all cursor-pointer border ${
+                  originHub.id === 'gangapur_rd'
+                    ? 'bg-[#52584A] text-[#FAF9F6] border-[#52584A]'
+                    : 'bg-surface-container-high hover:bg-surface-container-highest text-on-surface border-surface-container-highest/60'
+                }`}
+              >
+                🌿 Gangapur Rd
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = NASHIK_HUBS.findIndex(h => h.id === 'cbs');
+                  if (idx !== -1) {
+                    setOriginIndex(idx);
+                    setUseLiveLocation(false);
+                    localStorage.setItem('pooliq_preferred_hub', 'cbs');
+                  }
+                }}
+                className={`px-2 py-1 rounded-full font-mono text-[10px] font-medium shrink-0 transition-all cursor-pointer border ${
+                  originHub.id === 'cbs'
+                    ? 'bg-[#52584A] text-[#FAF9F6] border-[#52584A]'
+                    : 'bg-surface-container-high hover:bg-surface-container-highest text-on-surface border-surface-container-highest/60'
+                }`}
+              >
+                🏛️ CBS Chowk
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = NASHIK_HUBS.findIndex(h => h.id === 'nashik_road');
+                  if (idx !== -1) {
+                    setOriginIndex(idx);
+                    setUseLiveLocation(false);
+                    localStorage.setItem('pooliq_preferred_hub', 'nashik_road');
+                  }
+                }}
+                className={`px-2 py-1 rounded-full font-mono text-[10px] font-medium shrink-0 transition-all cursor-pointer border ${
+                  originHub.id === 'nashik_road'
+                    ? 'bg-[#52584A] text-[#FAF9F6] border-[#52584A]'
+                    : 'bg-surface-container-high hover:bg-surface-container-highest text-on-surface border-surface-container-highest/60'
+                }`}
+              >
+                🚆 Nashik Rd
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchModalType('pickup');
+                  setSearchQuery('');
+                }}
+                className="px-2 py-1 rounded-full font-mono text-[10px] font-semibold text-primary bg-primary/10 hover:bg-primary/20 shrink-0 transition-all cursor-pointer flex items-center gap-1 border border-primary/20"
+              >
+                <span className="material-symbols-outlined text-[13px]">search</span>
+                <span>Search Hubs</span>
+              </button>
+            </div>
           </div>
+
+          {/* Location Search Modal Popover */}
+          {searchModalType && (
+            <div 
+              className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+              onClick={() => setSearchModalType(null)}
+            >
+              <div 
+                className="bg-[#FAF9F6] w-full max-w-md rounded-2xl border border-[#DCDAD4] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-3 border-b border-[#E5E8DF] flex items-center justify-between bg-surface-container-lowest">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#52584A] text-[18px]">
+                      {searchModalType === 'pickup' ? 'trip_origin' : 'location_on'}
+                    </span>
+                    <span className="font-mono text-xs font-bold uppercase tracking-wider text-on-surface">
+                      Select {searchModalType === 'pickup' ? 'Pickup Location' : 'Destination Drop'}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={() => setSearchModalType(null)}
+                    className="text-on-surface-variant hover:text-on-surface text-sm font-bold p-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="p-3 bg-surface-container-low border-b border-[#E5E8DF]">
+                  <div className="relative flex items-center">
+                    <span className="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Search PVG, College Rd, Dindori, Gangapur, CBS..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-surface rounded-lg text-sm text-on-surface border border-surface-container-high focus:outline-none focus:border-primary font-body-md"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-y-auto p-2 flex flex-col gap-1 max-h-[350px]">
+                  {filteredHubs.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-on-surface-variant font-mono">
+                      No matching locations found in Nashik Metro.
+                    </div>
+                  ) : (
+                    filteredHubs.map((hub) => {
+                      const isSelected = searchModalType === 'pickup'
+                        ? originHub.id === hub.id
+                        : destHub.id === hub.id;
+                      return (
+                        <button
+                          key={hub.id}
+                          onClick={() => {
+                            const hubIdx = NASHIK_HUBS.findIndex(h => h.id === hub.id);
+                            if (searchModalType === 'pickup') {
+                              if (hubIdx !== -1) setOriginIndex(hubIdx);
+                              setUseLiveLocation(false);
+                              localStorage.setItem('pooliq_preferred_hub', hub.id);
+                            } else {
+                              if (hubIdx !== -1) setDestIndex(hubIdx);
+                            }
+                            setSearchModalType(null);
+                          }}
+                          className={`w-full p-2.5 rounded-lg flex items-center justify-between text-left transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#52584A] text-[#FAF9F6]'
+                              : 'hover:bg-surface-container-high text-on-surface'
+                          }`}
+                        >
+                          <div className="flex flex-col min-w-0 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold truncate">{hub.name}</span>
+                              {hub.id === 'pvg_coe' && (
+                                <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold ${
+                                  isSelected ? 'bg-white/20 text-white' : 'bg-[#10b981]/20 text-[#10b981]'
+                                }`}>
+                                  CAMPUS
+                                </span>
+                              )}
+                            </div>
+                            <span className={`text-[10px] font-mono truncate ${
+                              isSelected ? 'text-white/80' : 'text-on-surface-variant'
+                            }`}>
+                              {hub.tag || 'Transit Hub'} · {hub.lat.toFixed(4)}°N, {hub.lon.toFixed(4)}°E
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <span className="material-symbols-outlined text-[16px] text-white">check</span>
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Route Map Viewport with ESRI Dark Tiles and Clear Location Badges */}
           <div className="w-full relative h-[310px] bg-surface-container-lowest overflow-hidden border-y border-surface-container-high/40">
