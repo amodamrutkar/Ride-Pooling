@@ -19,15 +19,87 @@ export default function PoolScreen({
   const [originIndex, setOriginIndex] = useState(0); // CBS Chowk
   const [destIndex, setDestIndex] = useState(2);   // Gangapur Road
 
+  // User Live Geolocation State
+  const [useLiveLocation, setUseLiveLocation] = useState(false);
+  const [liveLocation, setLiveLocation] = useState(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationStatus, setLocationStatus] = useState('');
+
+  const handleFetchLiveLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationStatus('Geolocation is not supported by your browser.');
+      return;
+    }
+    setIsLocating(true);
+    setLocationStatus('Requesting GPS permission...');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(6));
+        const lon = Number(pos.coords.longitude.toFixed(6));
+        const accuracy = Math.round(pos.coords.accuracy || 15);
+
+        // Snap to nearest Nashik landmark for clear user context
+        let nearestHub = NASHIK_HUBS[0];
+        let minDis = 999999;
+        for (const h of NASHIK_HUBS) {
+          const d = Math.hypot(h.lat - lat, h.lon - lon);
+          if (d < minDis) {
+            minDis = d;
+            nearestHub = h;
+          }
+        }
+
+        const userGpsHub = {
+          id: 'user_live_gps',
+          name: `Current Location (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
+          shortName: `Live GPS · near ${nearestHub.shortName}`,
+          lat,
+          lon,
+          accuracy,
+          isLiveGps: true
+        };
+
+        setLiveLocation(userGpsHub);
+        setUseLiveLocation(true);
+        setIsLocating(false);
+        setLocationStatus(`GPS Locked (±${accuracy}m)`);
+        setTimeout(() => setLocationStatus(''), 4500);
+      },
+      (err) => {
+        console.warn('Geolocation error:', err);
+        setIsLocating(false);
+        if (err.code === 1) {
+          setLocationStatus('Location permission denied. Please allow location access.');
+        } else if (err.code === 2) {
+          setLocationStatus('GPS position unavailable.');
+        } else if (err.code === 3) {
+          setLocationStatus('GPS request timed out. Retrying...');
+        } else {
+          setLocationStatus('Could not acquire GPS position.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  };
+
   // If corridor was chosen from Routes screen, apply its stops
   useEffect(() => {
     if (preselectedHubs) {
-      if (typeof preselectedHubs.originIdx === 'number') setOriginIndex(preselectedHubs.originIdx);
+      if (typeof preselectedHubs.originIdx === 'number') {
+        setOriginIndex(preselectedHubs.originIdx);
+        setUseLiveLocation(false);
+      }
       if (typeof preselectedHubs.destIdx === 'number') setDestIndex(preselectedHubs.destIdx);
     }
   }, [preselectedHubs]);
 
-  const originHub = NASHIK_HUBS[originIndex] || NASHIK_HUBS[0];
+  const originHub = useMemo(() => {
+    if (useLiveLocation && liveLocation) {
+      return liveLocation;
+    }
+    return NASHIK_HUBS[originIndex] || NASHIK_HUBS[0];
+  }, [useLiveLocation, liveLocation, originIndex]);
+
   const destHub = NASHIK_HUBS[destIndex] || NASHIK_HUBS[2];
 
   // Real OSRM Road Geometry (Google Maps-like street turn-by-turn polyline)
@@ -219,23 +291,69 @@ export default function PoolScreen({
                 <div className="w-3 flex justify-center items-center mr-3 shrink-0 z-10">
                   <div className="w-2.5 h-2.5 rounded-full bg-primary-container shadow-[0_0_10px_#0ed4a8]"></div>
                 </div>
-                <div className="flex flex-col min-w-0 flex-1">
-                  <select
-                    value={originIndex}
-                    onChange={(e) => setOriginIndex(Number(e.target.value))}
-                    className="bg-transparent text-on-surface font-body-md text-sm font-semibold focus:outline-none cursor-pointer"
-                  >
-                    {NASHIK_HUBS.map((hub, idx) => (
-                      <option key={hub.id} value={idx} className="bg-surface-container text-on-surface">
-                        {hub.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <span className="font-label-mono text-label-mono text-primary uppercase tracking-wider text-[10px] font-bold">
+
+                {useLiveLocation && liveLocation ? (
+                  <div className="flex items-center justify-between flex-1 min-w-0 pr-1">
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#0ED4A8] animate-pulse"></span>
+                        <span className="text-on-surface font-body-md text-sm font-bold truncate">
+                          {liveLocation.shortName}
+                        </span>
+                      </div>
+                      <span className="font-label-mono text-[9.5px] text-outline truncate">
+                        GPS: {liveLocation.lat.toFixed(4)}, {liveLocation.lon.toFixed(4)} (±{liveLocation.accuracy}m)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setUseLiveLocation(false)}
+                      className="font-label-mono text-[10px] text-primary hover:underline font-semibold cursor-pointer whitespace-nowrap ml-2"
+                    >
+                      Choose Hub
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <select
+                        value={originIndex}
+                        onChange={(e) => setOriginIndex(Number(e.target.value))}
+                        className="bg-transparent text-on-surface font-body-md text-sm font-semibold focus:outline-none cursor-pointer"
+                      >
+                        {NASHIK_HUBS.map((hub, idx) => (
+                          <option key={hub.id} value={idx} className="bg-surface-container text-on-surface">
+                            {hub.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleFetchLiveLocation}
+                      disabled={isLocating}
+                      className="px-2 py-1 rounded bg-[#E5E8DF] hover:bg-[#DCDAD4] text-[#292B29] font-mono text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0 ml-1"
+                      title="Fetch live location via GPS"
+                    >
+                      <span className={`material-symbols-outlined text-[13px] text-[#52584A] ${isLocating ? 'animate-spin' : ''}`}>
+                        {isLocating ? 'progress_activity' : 'near_me'}
+                      </span>
+                      <span>{isLocating ? 'Locating...' : 'Use Live GPS'}</span>
+                    </button>
+                  </>
+                )}
+
+                <span className="font-label-mono text-label-mono text-primary uppercase tracking-wider text-[10px] font-bold ml-2">
                   Pickup
                 </span>
               </div>
+
+              {locationStatus && (
+                <div className="text-[10px] font-mono text-[#52584A] bg-[#E5E8DF]/70 px-2.5 py-1 rounded-md flex items-center gap-1.5 animate-fade-in">
+                  <span className="material-symbols-outlined text-[13px]">info</span>
+                  <span>{locationStatus}</span>
+                </div>
+              )}
 
               {/* Vertical connector line */}
               <div className="absolute left-[30px] top-[28px] bottom-[28px] w-px bg-outline-variant z-0 pointer-events-none"></div>
@@ -276,18 +394,6 @@ export default function PoolScreen({
               diffMode={diffMode}
               height="310px"
             />
-            {/* Context Floating Indicators */}
-            <div className="absolute top-2 left-4 flex items-center gap-1.5 bg-surface-container-high/90 backdrop-blur-md px-2.5 py-1 rounded border border-surface-container-highest/40 z-[400]">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
-              <span className="font-label-mono text-[10px] text-on-surface tracking-widest uppercase font-semibold">
-                {originHub.shortName} ➔ {destHub.shortName} · ROAD ROUTING ACTIVE
-              </span>
-            </div>
-            <div className="absolute bottom-2 right-4 bg-surface-container-high/90 backdrop-blur-md px-2.5 py-0.5 rounded border border-surface-container-highest/40 z-[400]">
-              <span className="font-label-mono text-[10px] text-on-surface-variant tracking-wider">
-                {diffPolyline ? (diffMode === 'before' ? 'BEFORE ROUTE GEOMETRY' : 'AFTER RE-OPTIMIZATION GEOMETRY') : 'LIVE STREET TELEMETRY'}
-              </span>
-            </div>
           </div>
 
           {/* Trip Metric & Summary Card */}

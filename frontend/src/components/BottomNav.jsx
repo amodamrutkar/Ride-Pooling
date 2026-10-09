@@ -15,7 +15,7 @@ export default function BottomNav({ activeTab, setActiveTab, userRole = 'passeng
     { id: 'fleet', label: 'Fleet', icon: 'hub' },
     { id: 'stats', label: 'Analytics', icon: 'insights' },
     { id: 'routes', label: 'Corridors', icon: 'alt_route' },
-    { id: 'pool', label: 'Dispatch', icon: 'map' }
+    { id: 'dispatch', label: 'Dispatch', icon: 'map' }
   ];
 
   const currentTabs = userRole === 'admin' ? adminTabs : passengerTabs;

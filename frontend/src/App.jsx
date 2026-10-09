@@ -7,6 +7,7 @@ import FairnessScreen from './pages/FairnessScreen';
 import RoutesScreen from './pages/RoutesScreen';
 import StatsScreen from './pages/StatsScreen';
 import FleetScreen from './pages/FleetScreen';
+import DispatchScreen from './pages/DispatchScreen';
 import ZeroTrustGate from './components/ZeroTrustGate';
 import RouteDiffView from './components/RouteDiffView';
 import {
@@ -35,12 +36,12 @@ export default function App() {
   const handleRoleChange = (newRole) => {
     setUserRole(newRole);
     if (newRole === 'passenger') {
-      if (activeTab === 'stats' || activeTab === 'fleet') {
+      if (activeTab === 'stats' || activeTab === 'fleet' || activeTab === 'dispatch') {
         setActiveTab('pool');
       }
     } else if (newRole === 'admin') {
-      if (activeTab === 'journey' || activeTab === 'fairness') {
-        setActiveTab('fleet');
+      if (activeTab === 'journey' || activeTab === 'fairness' || activeTab === 'pool') {
+        setActiveTab('dispatch');
       }
     }
   };
@@ -114,6 +115,7 @@ export default function App() {
     if (activeTab === 'routes') return 'Corridor Network';
     if (activeTab === 'stats') return 'Efficiency Hub';
     if (activeTab === 'fleet') return 'Fleet Telemetry';
+    if (activeTab === 'dispatch') return 'Dispatch Operations';
     return 'pool-IQ';
   };
 
@@ -258,6 +260,13 @@ export default function App() {
 
         {activeTab === 'fleet' && (
           <FleetScreen backendVehicles={backendState ? backendState.vehicles : null} />
+        )}
+
+        {activeTab === 'dispatch' && (
+          <DispatchScreen
+            backendState={backendState}
+            onRunDispatch={handleDispatchRun}
+          />
         )}
       </main>
 
