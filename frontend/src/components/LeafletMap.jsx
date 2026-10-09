@@ -136,26 +136,39 @@ export default function LeafletMap({
             })
           );
 
-          // Corridor stop nodes with permanent location name labels
+          // Corridor stop nodes: Render full text labels ONLY for selected corridor to prevent clutter
           corr.path.forEach((pt, idx) => {
             bounds.push(pt);
             const stopName = corr.stops && corr.stops[idx] ? corr.stops[idx] : `Stop ${idx + 1}`;
             const badgeColor = isSelected ? '#0ED4A8' : (corr.color || '#38bdf8');
             
-            const stopBadgeIcon = L.divIcon({
-              className: 'custom-stop-badge',
-              html: `
-                <div style="display: flex; align-items: center; gap: 6px; pointer-events: none; opacity: ${selectedCorridorId && !isSelected ? '0.4' : '1.0'};">
-                  <div style="width: ${isSelected ? '14px' : '11px'}; height: ${isSelected ? '14px' : '11px'}; border-radius: 50%; background: ${badgeColor}; border: 2.5px solid #131318; box-shadow: 0 0 12px ${badgeColor}; shrink: 0;"></div>
-                  <div style="background: rgba(19, 19, 24, 0.94); border: 1px solid ${badgeColor}90; color: #e4e1e9; padding: 2px 7px; border-radius: 4px; font-family: Inter, sans-serif; font-size: ${isSelected ? '11px' : '9.5px'}; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
-                    ${stopName}
+            if (isSelected) {
+              const stopBadgeIcon = L.divIcon({
+                className: 'custom-stop-badge',
+                html: `
+                  <div style="display: flex; align-items: center; gap: 6px; pointer-events: none; z-index: 500;">
+                    <div style="width: 13px; height: 13px; border-radius: 50%; background: ${badgeColor}; border: 2px solid #131318; box-shadow: 0 0 12px ${badgeColor}; shrink: 0;"></div>
+                    <div style="background: rgba(19, 19, 24, 0.95); border: 1.5px solid ${badgeColor}; color: #e4e1e9; padding: 2px 7px; border-radius: 5px; font-family: Inter, sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,0.7); backdrop-filter: blur(4px);">
+                      ${stopName}
+                    </div>
                   </div>
-                </div>
-              `,
-              iconSize: [120, 24],
-              iconAnchor: [6, 12]
-            });
-            addLayer(L.marker(pt, { icon: stopBadgeIcon }));
+                `,
+                iconSize: [120, 24],
+                iconAnchor: [6, 12]
+              });
+              addLayer(L.marker(pt, { icon: stopBadgeIcon }));
+            } else {
+              // Minimal sleek dot for non-selected corridors: ZERO text overlap clutter!
+              const dotIcon = L.divIcon({
+                className: 'custom-stop-dot',
+                html: `
+                  <div style="width: 8px; height: 8px; border-radius: 50%; background: ${badgeColor}; border: 1.5px solid #131318; opacity: 0.75; box-shadow: 0 0 6px ${badgeColor}60;"></div>
+                `,
+                iconSize: [8, 8],
+                iconAnchor: [4, 4]
+              });
+              addLayer(L.marker(pt, { icon: dotIcon }));
+            }
           });
         }
       });

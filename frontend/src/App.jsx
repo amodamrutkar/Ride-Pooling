@@ -251,7 +251,7 @@ export default function App() {
         )}
 
         {activeTab === 'routes' && (
-          <RoutesScreen onSelectCorridor={handleSelectCorridor} />
+          <RoutesScreen onSelectCorridor={handleSelectCorridor} userRole={userRole} />
         )}
 
         {activeTab === 'stats' && (
