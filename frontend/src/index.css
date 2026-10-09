@@ -148,6 +148,8 @@
 .leaflet-container {
   background-color: #0e0e13 !important;
   font-family: 'Inter', sans-serif !important;
+  z-index: 0;
+  position: relative;
 }
 
 .leaflet-control-zoom {
