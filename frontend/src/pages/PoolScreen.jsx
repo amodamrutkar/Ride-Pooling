@@ -2,23 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import LeafletMap from '../components/LeafletMap';
 import ZeroTrustGate from '../components/ZeroTrustGate';
 import RouteDiffView from '../components/RouteDiffView';
-import { fetchRoadRoute } from '../utils/routing';
+import { fetchRoadRoute, getAccurateDistance } from '../utils/routing';
 import { runDispatch } from '../utils/api';
 import { NASHIK_HUBS } from '../data/nashikLocations';
-
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.max(1.2, Math.round(R * c * 10) / 10);
-}
 
 export default function PoolScreen({
   poolStage,
@@ -64,16 +50,24 @@ export default function PoolScreen({
     };
   }, [originHub, destHub]);
 
-  // Dynamic trip metrics calculation based on real road routing
+  // Accurate road metrics calculation based on Nashik Road Matrix & OSRM
+  const accurateMetrics = useMemo(() => {
+    return getAccurateDistance(originHub, destHub);
+  }, [originHub, destHub]);
+
   const tripDistance = useMemo(() => {
-    if (roadRoute && roadRoute.distanceKm) return roadRoute.distanceKm;
-    return calculateDistance(originHub.lat, originHub.lon, destHub.lat, destHub.lon);
-  }, [originHub, destHub, roadRoute]);
+    if (roadRoute && roadRoute.distanceKm && roadRoute.distanceKm > 2.5) {
+      return roadRoute.distanceKm;
+    }
+    return accurateMetrics.km;
+  }, [roadRoute, accurateMetrics]);
 
   const estTimeMin = useMemo(() => {
-    if (roadRoute && roadRoute.durationMin) return roadRoute.durationMin;
-    return Math.round(tripDistance * 1.8 + 2);
-  }, [tripDistance, roadRoute]);
+    if (roadRoute && roadRoute.durationMin && roadRoute.durationMin > 5) {
+      return roadRoute.durationMin;
+    }
+    return accurateMetrics.min;
+  }, [roadRoute, accurateMetrics]);
 
   const soloFare = Math.round(25 + tripDistance * 10);
   const pooledMin = Math.round(soloFare * 0.72);

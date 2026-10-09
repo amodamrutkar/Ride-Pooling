@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import PoolScreen from './pages/PoolScreen';
+import JourneyScreen from './pages/JourneyScreen';
+import FairnessScreen from './pages/FairnessScreen';
 import RoutesScreen from './pages/RoutesScreen';
 import StatsScreen from './pages/StatsScreen';
 import FleetScreen from './pages/FleetScreen';
@@ -24,10 +26,24 @@ import {
 import { NASHIK_HUBS } from './data/nashikLocations';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('pool'); // 'pool' | 'routes' | 'stats' | 'fleet'
+  const [userRole, setUserRole] = useState('passenger'); // 'passenger' | 'admin'
+  const [activeTab, setActiveTab] = useState('pool'); // 'pool' | 'journey' | 'fairness' | 'routes' | 'stats' | 'fleet'
   const [poolStage, setPoolStage] = useState('request'); // 'request' | 'matching' | 'active'
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [activeModalTab, setActiveModalTab] = useState('controls'); // 'controls' | 'traffic' | 'distance' | 'alerts' | 'arena'
+
+  const handleRoleChange = (newRole) => {
+    setUserRole(newRole);
+    if (newRole === 'passenger') {
+      if (activeTab === 'stats' || activeTab === 'fleet') {
+        setActiveTab('pool');
+      }
+    } else if (newRole === 'admin') {
+      if (activeTab === 'journey' || activeTab === 'fairness') {
+        setActiveTab('fleet');
+      }
+    }
+  };
 
   const [backendStatus, setBackendStatus] = useState('Checking...');
   const [selectedScenario, setSelectedScenario] = useState('demo_5r_3v');
@@ -93,10 +109,12 @@ export default function App() {
       if (poolStage === 'request' || poolStage === 'matching') return 'Active Ride Tracking';
       return 'Live Pool';
     }
-    if (activeTab === 'routes') return 'Live Pool';
+    if (activeTab === 'journey') return 'My Shared Journey';
+    if (activeTab === 'fairness') return 'Fairness Vault';
+    if (activeTab === 'routes') return 'Corridor Network';
     if (activeTab === 'stats') return 'Efficiency Hub';
     if (activeTab === 'fleet') return 'Fleet Telemetry';
-    return 'PoolIQ';
+    return 'poolIQ';
   };
 
   const handleHeaderBack = () => {
@@ -200,6 +218,9 @@ export default function App() {
         showBack={activeTab === 'pool' && poolStage !== 'request'}
         onBack={handleHeaderBack}
         onTuneClick={() => setShowSettingsModal(true)}
+        userRole={userRole}
+        setUserRole={handleRoleChange}
+        backendStatus={backendStatus}
       />
 
       {/* Main Screen Content */}
@@ -216,6 +237,17 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'journey' && (
+          <JourneyScreen
+            activeRide={activeRideRequest}
+            assignedVehicle={assignedVehicle}
+          />
+        )}
+
+        {activeTab === 'fairness' && (
+          <FairnessScreen />
+        )}
+
         {activeTab === 'routes' && (
           <RoutesScreen onSelectCorridor={handleSelectCorridor} />
         )}
@@ -230,7 +262,11 @@ export default function App() {
       </main>
 
       {/* Fixed Bottom Navigation */}
-      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+      <BottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        userRole={userRole}
+      />
 
       {/* Settings / Engine Telemetry & Controls Modal */}
       {showSettingsModal && (
