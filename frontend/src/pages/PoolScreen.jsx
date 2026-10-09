@@ -56,14 +56,14 @@ export default function PoolScreen({
   }, [originHub, destHub]);
 
   const tripDistance = useMemo(() => {
-    if (roadRoute && roadRoute.distanceKm && roadRoute.distanceKm > 2.5) {
+    if (roadRoute && roadRoute.distanceKm && roadRoute.distanceKm > 0.5) {
       return roadRoute.distanceKm;
     }
     return accurateMetrics.km;
   }, [roadRoute, accurateMetrics]);
 
   const estTimeMin = useMemo(() => {
-    if (roadRoute && roadRoute.durationMin && roadRoute.durationMin > 5) {
+    if (roadRoute && roadRoute.durationMin && roadRoute.durationMin > 0) {
       return roadRoute.durationMin;
     }
     return accurateMetrics.min;

@@ -1,8 +1,8 @@
 // Nashik Geographic Nodes, Corridors, and Mock Telemetry
 export const NASHIK_HUBS = [
   { id: "cbs", name: "CBS Chowk, Nashik", shortName: "CBS Chowk", lat: 19.9977, lon: 73.7803, tag: "Central Terminal" },
-  { id: "college_rd", name: "College Road", shortName: "College Rd", lat: 20.0046, lon: 73.7628, tag: "Commercial/Academic" },
-  { id: "gangapur_rd", name: "Gangapur Road", shortName: "Gangapur Rd", lat: 20.0300, lon: 73.7122, tag: "Residential/Corridor" },
+  { id: "college_rd", name: "College Road", shortName: "College Rd", lat: 20.0066, lon: 73.7609, tag: "Commercial/Academic" },
+  { id: "gangapur_rd", name: "Gangapur Road", shortName: "Gangapur Rd", lat: 20.0116, lon: 73.7595, tag: "Residential/Corridor" },
   { id: "panchavati", name: "Panchavati", shortName: "Panchavati", lat: 20.0069, lon: 73.7930, tag: "Heritage Hub" },
   { id: "dwarka", name: "Dwarka Circle", shortName: "Dwarka", lat: 19.9931, lon: 73.8037, tag: "Transit Junction" },
   { id: "indira_nagar", name: "Indira Nagar", shortName: "Indira Nagar", lat: 19.9742, lon: 73.7819, tag: "South Suburb" },
@@ -32,9 +32,9 @@ export const CORRIDORS = [
     avgWait: "2m 10s",
     path: [
       [19.9977, 73.7803],
-      [20.0046, 73.7628],
-      [20.0175, 73.7410],
-      [20.0300, 73.7122]
+      [20.0020, 73.7870],
+      [20.0066, 73.7609],
+      [20.0116, 73.7595]
     ]
   },
   {
