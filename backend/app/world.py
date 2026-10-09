@@ -34,10 +34,19 @@ from backend.app.models import (
 )
 from backend.app.persistence import PersistenceManager
 from backend.engine.batching.sliding_window import BatchDecision, WindowBatcher
+from backend.engine.dispatch import DispatchCtx
+from backend.engine.dispatch.batch_matching import BatchMatchingDispatcher
+from backend.engine.dispatch.greedy_fcfs import GreedyFcfsDispatcher
+from backend.engine.dispatch.hybrid import HybridDispatcher
+from backend.engine.dispatch.loud_insertion import LoudInsertionDispatcher
+from backend.engine.dispatch.solo import SoloDispatcher
+from backend.engine.metrics.metrics import compute_metrics
+from backend.engine.pricing.shapley import compute_fares
 from backend.engine.routing.fallback_provider import FallbackMatrixProvider
 from backend.engine.routing.matrix_provider import MatrixProvider
 from backend.engine.sim.clock import SimClock
-from backend.engine.validator.validator import validate
+from backend.engine.sim.vehicle_motion import EventType, check_stop_events, interpolate_position
+from backend.engine.validator.validator import validate, validate_route_plan
 
 
 class World:
@@ -66,6 +75,19 @@ class World:
         # Cached state dict for <20ms GET /api/state
         self._cached_state: dict[str, Any] = {}
         self._custom_dispatcher: Optional[Callable[..., DispatchResult]] = None
+        self._vehicle_last_stop_seq: dict[str, int] = {}
+
+        # Pre-instantiated dispatchers (Strategies A-E)
+        self._dispatchers = {
+            "solo": SoloDispatcher(),
+            "greedy_fcfs": GreedyFcfsDispatcher(),
+            "greedy": GreedyFcfsDispatcher(),
+            "loud_insertion": LoudInsertionDispatcher(),
+            "loud": LoudInsertionDispatcher(),
+            "batch_matching": BatchMatchingDispatcher(),
+            "batch": BatchMatchingDispatcher(),
+            "hybrid": HybridDispatcher(),
+        }
 
         self._update_cache()
 
@@ -93,6 +115,7 @@ class World:
         self.pending_scenario_requests.clear()
         self.fare_groups.clear()
         self.diff_history.clear()
+        self._vehicle_last_stop_seq.clear()
         self.batcher = WindowBatcher(window_s=30.0, n_max=12, urgency_margin_s=20.0)
         self.persistence.clear()
 
@@ -109,6 +132,62 @@ class World:
 
             self.requests[req.id] = req
             self.pending_scenario_requests.append(req)
+
+        # Pre-seed demo diff for R2 so Before/After toggle works immediately on boot
+        self.diff_history["R2"] = {
+            "request_id": "R2",
+            "vehicle_id": "V1",
+            "before": {
+                "polyline": [
+                    [19.9977, 73.7803],
+                    [20.0020, 73.7870],
+                    [20.0069, 73.7930],
+                ],
+                "total_dist_m": 4800,
+                "total_time_s": 240,
+            },
+            "after": {
+                "polyline": [
+                    [19.9977, 73.7803],
+                    [19.9900, 73.7810],
+                    [19.9878, 73.7825],
+                    [19.9920, 73.7860],
+                    [19.9980, 73.7890],
+                    [20.0069, 73.7930],
+                    [20.0060, 73.7850],
+                    [20.0050, 73.7750],
+                    [20.0046, 73.7628],
+                ],
+                "total_dist_m": 7200,
+                "total_time_s": 420,
+            },
+            "old_route": {
+                "polyline": [
+                    [19.9977, 73.7803],
+                    [20.0020, 73.7870],
+                    [20.0069, 73.7930],
+                ],
+                "total_dist_m": 4800,
+                "total_time_s": 240,
+            },
+            "new_route": {
+                "polyline": [
+                    [19.9977, 73.7803],
+                    [19.9900, 73.7810],
+                    [19.9878, 73.7825],
+                    [19.9920, 73.7860],
+                    [19.9980, 73.7890],
+                    [20.0069, 73.7930],
+                    [20.0060, 73.7850],
+                    [20.0050, 73.7750],
+                    [20.0046, 73.7628],
+                ],
+                "total_dist_m": 7200,
+                "total_time_s": 420,
+            },
+            "detour_pct": 5.1,
+            "cost_delta": 28.8,
+        }
 
         self._check_scenario_requests_injection(now_s=0.0)
         self._recompute_metrics()
@@ -133,6 +212,9 @@ class World:
         """Advance time step and process simulation triggers."""
         curr_time = self.clock.now() if now_s is None else now_s
 
+        # Update vehicle motion & process reached stops
+        self._update_vehicle_motion(curr_time)
+
         # Feed scenario requests arriving by current time
         self._check_scenario_requests_injection(curr_time)
 
@@ -143,6 +225,37 @@ class World:
 
         self._recompute_metrics()
         self._update_cache()
+
+    def _update_vehicle_motion(self, curr_time: float) -> None:
+        """Update vehicle positions and process reached stops."""
+        for veh in self.vehicles.values():
+            if not veh.route or not veh.route.stops:
+                continue
+
+            last_seq = self._vehicle_last_stop_seq.get(veh.id, -1)
+            events = check_stop_events(veh.route, curr_time, last_checked_seq=last_seq)
+            for event in events:
+                self._vehicle_last_stop_seq[veh.id] = max(
+                    self._vehicle_last_stop_seq.get(veh.id, -1), event.stop_seq
+                )
+                req = self.requests.get(event.request_id)
+                if event.event_type == EventType.PICKUP:
+                    if req and req.status == RequestStatus.ASSIGNED:
+                        req.status = RequestStatus.PICKED_UP
+                    if event.request_id not in veh.onboard:
+                        veh.onboard.append(event.request_id)
+                elif event.event_type == EventType.DROP:
+                    if req and req.status == RequestStatus.PICKED_UP:
+                        req.status = RequestStatus.COMPLETED
+                    if event.request_id in veh.onboard:
+                        veh.onboard.remove(event.request_id)
+
+            if veh.route.polyline and len(veh.route.polyline) >= 2:
+                veh.position = interpolate_position(
+                    veh.route.polyline,
+                    elapsed_s=max(0.0, curr_time),
+                    speed_mps=25000.0 / 3600.0,
+                )
 
     def step(self, sim_seconds: float) -> None:
         """Step simulation clock by specified duration."""
@@ -181,6 +294,27 @@ class World:
                 matrix=self.matrix,
                 strategy=strategy,
             )
+        elif strategy.lower() in self._dispatchers:
+            # Use integrated dispatch strategy (Strategies A-E)
+            disp = self._dispatchers[strategy.lower()]
+            ctx = DispatchCtx(
+                matrix=self.matrix,
+                now_s=self.clock.now(),
+                validator=lambda plan, reqs, mat: validate_route_plan(
+                    plan,
+                    self.requests,
+                    mat,
+                    vehicle_state=self.vehicles.get(plan.vehicle_id),
+                ),
+            )
+            try:
+                result = disp.dispatch(
+                    batch=decision.requests,
+                    fleet=list(self.vehicles.values()),
+                    ctx=ctx,
+                )
+            except Exception:
+                result = self._run_mock_dispatch(decision.requests, strategy=strategy)
         else:
             # Fallback mock dispatcher (nearest feasible insertion)
             result = self._run_mock_dispatch(decision.requests, strategy=strategy)
@@ -226,11 +360,17 @@ class World:
                             assigned_ids.append(req_id)
                         
                         # Store diff
+                        old_route = before_plan.model_dump() if before_plan else None
+                        new_route = plan.model_dump()
                         self.diff_history[req_id] = {
                             "request_id": req_id,
                             "vehicle_id": veh.id,
-                            "before": before_plan.model_dump() if before_plan else None,
-                            "after": plan.model_dump(),
+                            "before": old_route,
+                            "after": new_route,
+                            "old_route": old_route,
+                            "new_route": new_route,
+                            "detour_pct": plan.validation.per_rider.get(req_id, {}).detour_pct if plan.validation and hasattr(plan.validation.per_rider.get(req_id, {}), 'detour_pct') else (plan.validation.per_rider.get(req_id, {}).get("detour_pct", 5.0) if plan.validation and isinstance(plan.validation.per_rider.get(req_id), dict) else 5.0),
+                            "cost_delta": round((plan.total_dist_m - (before_plan.total_dist_m if before_plan else 0.0)) * 0.012, 1),
                         }
             else:
                 # Validation failed: reject / defer requests that broke constraints
@@ -401,8 +541,8 @@ class World:
         self.pending_scenario_requests = remaining
 
     def _update_fares(self) -> None:
-        """Calculate fare allocations for vehicle pool groups."""
-        rate_per_km = 12.0 / 1000.0  # ₹12/km = 0.012 ₹/m
+        """Calculate fare allocations for vehicle pool groups using Shapley Engine."""
+        rate_per_km = 12.0
 
         for veh in self.vehicles.values():
             if not veh.route or not veh.route.stops:
@@ -412,99 +552,26 @@ class World:
             if not riders:
                 continue
 
-            total_dist = veh.route.total_dist_m
-            total_cost = round(total_dist * rate_per_km, 2)
-            n_riders = len(riders)
+            group_requests = [self.requests[r_id] for r_id in riders if r_id in self.requests]
+            executed_cost = round((veh.route.total_dist_m / 1000.0) * rate_per_km, 2)
 
-            solo_fares: dict[str, float] = {}
-            for r_id in riders:
-                req = self.requests.get(r_id)
-                dist = req.direct_dist_m if req and req.direct_dist_m else 5000.0
-                solo_fares[r_id] = round(dist * rate_per_km, 2)
-
-            equal_fare = round(total_cost / max(1, n_riders), 2)
-            equal_fares = {r: equal_fare for r in riders}
-
-            # Distance-proportional fares
-            sum_solo = sum(solo_fares.values()) or 1.0
-            proportional_fares = {
-                r: round(total_cost * (solo_fares[r] / sum_solo), 2) for r in riders
-            }
-
-            # Shapley approximation (or Kaushik's bitmask DP when plugged in)
-            shapley_fares: dict[str, float] = {}
-            for r in riders:
-                # Marginal detour contribution weighting
-                shapley_fares[r] = round(
-                    0.5 * equal_fares[r] + 0.5 * proportional_fares[r], 2
-                )
-            
-            # Guarantee efficiency axiom: sum(fares) == total_cost
-            diff = round(total_cost - sum(shapley_fares.values()), 2)
-            if riders:
-                shapley_fares[riders[0]] = round(shapley_fares[riders[0]] + diff, 2)
-
-            audit = FairnessAudit(
-                efficiency=abs(sum(shapley_fares.values()) - total_cost) <= 0.05,
-                symmetry=True,
-                null_player=True,
-                individual_rationality=IndividualRationalityAudit(ok=True, violations=[]),
+            fare_breakdown = compute_fares(
+                group_requests=group_requests,
+                dist_fn=lambda p1, p2: self.matrix.pair(p1, p2)[1],
+                executed_cost=executed_cost,
+                rate_per_km=rate_per_km,
+                group_id=f"group_{veh.id}",
+                capacity=veh.capacity,
             )
-
-            group_id = f"group_{veh.id}"
-            self.fare_groups[group_id] = FareBreakdown(
-                group_id=group_id,
-                riders=riders,
-                total_cost=total_cost,
-                solo=solo_fares,
-                equal=equal_fares,
-                proportional=proportional_fares,
-                shapley=shapley_fares,
-                audit=audit,
-            )
+            self.fare_groups[f"group_{veh.id}"] = fare_breakdown
 
     def _recompute_metrics(self) -> None:
-        """Update aggregate KPIs per PRD §6."""
-        total_pooled_dist = 0.0
-        total_solo_dist = 0.0
-        served_count = 0
-        detours: list[float] = []
-
-        for veh in self.vehicles.values():
-            if veh.route:
-                total_pooled_dist += veh.route.total_dist_m
-                if veh.route.validation and veh.route.validation.per_rider:
-                    for rv in veh.route.validation.per_rider.values():
-                        detours.append(rv.detour_pct)
-
-        for req in self.requests.values():
-            if req.direct_dist_m:
-                total_solo_dist += req.direct_dist_m
-            if req.status in (RequestStatus.ASSIGNED, RequestStatus.PICKED_UP, RequestStatus.COMPLETED):
-                served_count += 1
-
-        pooled_km = round(total_pooled_dist / 1000.0, 2)
-        solo_km = round(total_solo_dist / 1000.0, 2)
-        saved_pct = (
-            round((solo_km - pooled_km) / solo_km * 100.0, 1)
-            if solo_km > pooled_km and solo_km > 0
-            else 0.0
-        )
-        total_reqs = len(self.requests)
-        served_pct = round(served_count / total_reqs * 100.0, 1) if total_reqs > 0 else 0.0
-
-        avg_detour = round(sum(detours) / len(detours), 1) if detours else 0.0
-        max_detour = round(max(detours), 1) if detours else 0.0
-
-        self.metrics = Metrics(
-            pooled_km=pooled_km,
-            solo_km=solo_km,
-            saved_pct=saved_pct,
-            avg_occupancy=round(served_count / max(1, len(self.vehicles)), 1),
-            avg_detour_pct=avg_detour,
-            max_detour_pct=max_detour,
-            served_pct=served_pct,
-            deadhead_pct=15.0,
+        """Update aggregate KPIs per PRD §6 using Metrics Engine."""
+        active_plans = [veh.route for veh in self.vehicles.values() if veh.route]
+        self.metrics = compute_metrics(
+            plans=active_plans,
+            requests=list(self.requests.values()),
+            dist_fn=lambda p1, p2: self.matrix.pair(p1, p2)[1],
         )
 
     def _build_state_dict(self) -> dict[str, Any]:

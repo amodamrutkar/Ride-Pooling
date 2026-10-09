@@ -33,7 +33,18 @@ export async function getFares(groupId) {
 
 export async function getArena(scenario = 'nashik_metro_core') {
   const data = await fetchJSON(`/api/arena/${scenario}`)
-  return data || mockArena
+  if (!data) return mockArena
+  if (data.strategies && !data.results) {
+    data.results = data.strategies.map((s) => ({
+      strategy: s.name || s.strategy,
+      total_km: s.total_km ?? s.pooled_km ?? 0,
+      avg_detour: s.avg_detour ?? s.avg_detour_pct ?? 0,
+      served_pct: s.served_pct ?? 100,
+      avg_occupancy: s.avg_occupancy ?? 1.8,
+      solve_ms: s.solve_ms ?? 1,
+    }))
+  }
+  return data
 }
 
 export async function submitRequest(pickup, drop) {
@@ -50,7 +61,13 @@ export async function submitRequest(pickup, drop) {
       }),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
+    const data = await res.json()
+    return {
+      id: data.id || data.request?.id || `R${Date.now() % 1000}`,
+      status: data.status || data.request?.status || 'PENDING',
+      vehicle_id: data.vehicle_id || data.request?.vehicle_id || null,
+      ...data,
+    }
   } catch {
     // Mock response: simulate an assignment
     return {
@@ -79,7 +96,10 @@ export async function controlSim(action, speed) {
   try {
     const res = await fetch(`${API_BASE}/api/sim/control`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer pooliq-admin-secret-key',
+      },
       body: JSON.stringify({ action, speed }),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -91,7 +111,11 @@ export async function controlSim(action, speed) {
 
 export async function getDiff(requestId = 'R2') {
   const data = await fetchJSON(`/api/diff/${requestId}`)
-  if (data) return data
+  if (data) {
+    if (!data.old_route && data.before) data.old_route = data.before
+    if (!data.new_route && data.after) data.new_route = data.after
+    return data
+  }
   // Mock diff: route before and after R2 was pooled into V1
   return {
     request_id: requestId,

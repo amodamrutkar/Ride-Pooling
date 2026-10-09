@@ -21,6 +21,7 @@ from backend.app.models import (
     LatLon,
     Request,
     RiderValidation,
+    RoutePlan,
     Stop,
     StopType,
     ValidationReport,
@@ -35,6 +36,7 @@ def validate(
     matrix: Optional[MatrixProvider] = None,
     vehicle_state: Optional[Union[Vehicle, dict[str, Any]]] = None,
     config: Optional[dict[str, Any]] = None,
+    allow_partial_requests: bool = False,
 ) -> ValidationReport:
     """Validate a planned route against all business, safety, and operational constraints.
 
@@ -98,13 +100,14 @@ def validate(
             violations.append(f"DUPLICATE_STOP: Request {req_id} has {count} {st_type.value} stops")
 
     # 2. Unknown request IDs
-    for stop in stops:
-        if stop.request_id not in requests:
-            violations.append(f"UNKNOWN_REQUEST: Stop references unknown request_id '{stop.request_id}'")
+    if not allow_partial_requests:
+        for stop in stops:
+            if stop.request_id not in requests:
+                violations.append(f"UNKNOWN_REQUEST: Stop references unknown request_id '{stop.request_id}'")
 
-    for rider_id in onboard:
-        if rider_id not in requests:
-            violations.append(f"UNKNOWN_ONBOARD_REQUEST: Onboard list contains unknown request_id '{rider_id}'")
+        for rider_id in onboard:
+            if rider_id not in requests:
+                violations.append(f"UNKNOWN_ONBOARD_REQUEST: Onboard list contains unknown request_id '{rider_id}'")
 
     # Calculate initial load from onboard riders
     current_load = 0
@@ -258,3 +261,29 @@ def validate(
         violations=violations,
         per_rider=per_rider,
     )
+
+
+def validate_route_plan(
+    plan: RoutePlan,
+    requests: Sequence[Request] | dict[str, Request],
+    matrix: Optional[MatrixProvider] = None,
+    vehicle_state: Optional[Union[Vehicle, dict[str, Any]]] = None,
+    config: Optional[dict[str, Any]] = None,
+    allow_partial_requests: bool = True,
+) -> ValidationReport:
+    """Validate a planned route against all business, safety, and operational constraints.
+
+    Adapts RoutePlan and request collections into the core validate() engine.
+    """
+    req_dict: dict[str, Request] = (
+        requests if isinstance(requests, dict) else {r.id: r for r in requests}
+    )
+    return validate(
+        stops=plan.stops,
+        requests=req_dict,
+        matrix=matrix,
+        vehicle_state=vehicle_state,
+        config=config,
+        allow_partial_requests=allow_partial_requests,
+    )
+

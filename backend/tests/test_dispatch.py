@@ -33,6 +33,7 @@ from backend.engine.dispatch.greedy_fcfs import GreedyFcfsDispatcher
 from backend.engine.dispatch.loud_insertion import LoudInsertionDispatcher
 from backend.engine.dispatch.batch_matching import BatchMatchingDispatcher
 from backend.engine.dispatch.hybrid import HybridDispatcher
+from backend.engine.validator.validator import validate_route_plan
 
 
 def stub_validator(plan: RoutePlan, requests: list[Request], matrix) -> ValidationReport:
@@ -87,7 +88,7 @@ def ctx(fallback_provider):
     return DispatchCtx(
         matrix=fallback_provider,
         now_s=0.0,
-        validator=stub_validator,
+        validator=validate_route_plan,
     )
 
 

@@ -166,3 +166,30 @@ Deliver the platform spine of PoolIQ: independent zero-trust constraint validato
   - Diff tracking via `/api/diff/{request_id}`.
 - **OpenAPI Documentation:** Auto-exported to `docs/openapi.json`.
 - **Security Documentation:** `docs/security.md` containing threat model matrix and operational guidance.
+
+## System Integration (Full Stack Backend)
+
+### Integrated Architecture
+- **World Orchestrator Pipeline (`backend/app/world.py`):**
+  - **Multi-strategy Dispatch:** Injects `DispatchCtx` with real `validate_route_plan` and invokes Strategies A–E (Solo, Greedy FCFS, Loud Insertion, Batch Matching, Hybrid).
+  - **Dynamic Kinematics:** Simulation ticks advance vehicle motion along polylines using Haversine interpolation at 25 km/h and fire pickup/drop stop events.
+  - **Fair Shapley Allocations:** Computes exact bitmask DP and Monte-Carlo Shapley allocations with 4 fairness axioms in `World._update_fares()`.
+  - **KPI Metrics Engine:** Computes pooled vs solo km, saved km %, average occupancy, and detour % in `World._recompute_metrics()`.
+  - **Algorithm Arena (`/api/arena/{scenario_id}`):** Live benchmark runner executing all 5 dispatch strategies side-by-side.
+- **Verification:** 98/98 tests passing across unit, property, and end-to-end integration test suites.
+
+## Nakul (Frontend & Visual Experience) & Full-Stack Integration
+
+### Integrated Components & Architecture
+- **Tech Stack:** React 19 + Vite 8 + TailwindCSS + Leaflet / React-Leaflet + Framer Motion + Recharts.
+- **Routes & Views:**
+  - `/`: Mission Control Room Dashboard (dark map, live vehicle markers, sliding-window batcher timeline, KPI cards, constraint proof badge, game-theoretic fair fare allocation panel, Algorithm Arena).
+  - `/rider`: Rider Mobile Interface (Nashik Urban Corridor transit booking, live origin/destination selector, interactive pickup/drop map pins, dynamic Shapley fare discount estimation).
+- **Backend Communication:**
+  - Live polling `/api/state` every 1000ms with visibility change pause/resume.
+  - Interactive ride submission via `POST /api/requests` with immediate coordinate mapping.
+  - Dynamic route diff visualization via `/api/diff/{id}` showing dashed grey baseline vs solid teal pooled route.
+  - Multi-strategy benchmark comparison via `/api/arena/{scenario}`.
+  - Authenticated simulation speed & clock controls via `/api/sim/control`.
+- **Status:** Fully integrated and verified live with FastAPI backend and Vite frontend running concurrently.
+

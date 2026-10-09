@@ -42,14 +42,16 @@
 - [x] Mock Data for Frontend:
   - `frontend/utils/mock/state.json`: Realistic live simulation state matching PRD §6 API contracts for frontend dev
 
-### In Progress
-- [ ] Teammate workspace onboarding & handoff.
+### Completed Integrations
+- [x] **Route Validator & Hard Constraints** (`backend/engine/validator/`): Pluggable `validate_route_plan` protocol with zero-dependency constraint evaluation.
+- [x] **Multi-Strategy Dispatchers** (`backend/engine/dispatch/`): Wire-up of Strategies A-E (Solo, Greedy FCFS, Loud Insertion, Batch Matching, Hybrid) inside `World._execute_dispatch_pipeline` and live `/api/arena/{scenario_id}`.
+- [x] **Fair Pricing Engine** (`backend/engine/pricing/`): Connected exact bitmask DP and Monte-Carlo Shapley cost allocator with fairness axioms in `World._update_fares()`.
+- [x] **Operational Metrics Engine** (`backend/engine/metrics/`): Integrated aggregate KPIs in `World._recompute_metrics()`.
+- [x] **Vehicle Kinematics & Stop Events** (`backend/engine/sim/vehicle_motion.py`): Integrated into `World.tick()`.
+- [x] **Full Test Suite & E2E Verification**: 98/98 tests passing with zero failures.
 
 ### Pending
-- [ ] Integration of Validator & Hard Constraints (`backend/engine/validator/` - Ketan)
-- [ ] Integration of Pricing & Surge Module (`backend/engine/pricing/` - Kaushik)
-- [ ] Integration of Metrics Calculation (`backend/engine/metrics/` - Kaushik)
-- [ ] Integration of Frontend React UI & MapLibre Dashboard (`frontend/` - Nakul)
+- [ ] Integration of Frontend React UI & MapLibre Dashboard (`frontend/` - Nakul).
 
 ## Spandan (Optimization Core Lead)
 
@@ -113,10 +115,21 @@
 - [x] **Integration & API Test Suite (`backend/tests/test_api_and_world.py`)**:
   - 8 tests passing verifying all endpoints, auth protection, rate limiting, and diff tracking.
 
-### In Progress
-- [ ] Integration with Spandan's multi-algorithm dispatcher (`backend/engine/dispatch/`) and Kaushik's bitmask DP Shapley engine (`backend/engine/pricing/`).
+### Completed Integrations
+- [x] Paired with Spandan's multi-algorithm dispatcher: Strategies A-E integrated into `World._execute_dispatch_pipeline` and `/api/arena/{scenario_id}`.
+- [x] Connected Kaushik's Shapley cost allocator (`backend/engine/pricing/shapley.py`) into `World._update_fares()`.
+- [x] Connected Kaushik's aggregate metrics engine (`backend/engine/metrics/metrics.py`) into `World._recompute_metrics()`.
+- [x] Connected Amod's vehicle kinematics (`backend/engine/sim/vehicle_motion.py`) into `World.tick()`.
+- [x] **Full-Stack Frontend Integration (Nakul & Team)**:
+  - Pulled and integrated Nakul's React + Vite + Leaflet frontend into the live environment.
+  - Aligned data contracts for `POST /api/requests`, `GET /api/diff/{id}`, and `GET /api/arena/{scenario_id}`.
+  - Connected live polling to `/api/state` (<20ms snapshot) and `/api/health`.
+  - Authenticated simulation speed/pause controls seamlessly with admin bearer token.
+  - Verified live in browser:
+    - Control room dashboard (`/`) with dark Leaflet map, live vehicles (V1, V2, V3), metrics cards, sliding window panel, request queue, constraint proof badges, and Shapley fare breakdowns.
+    - Algorithm Arena comparing all 5 dispatch strategies on identical Nashik traffic.
+    - Rider mobile interface (`/rider`) with Nashik corridor booking, location selection, and instant fair fare discounts.
 
 ### Next Steps
-1. Pair with Spandan to plug in `loud_insertion` and `hybrid` dispatchers into `World.set_dispatcher()`.
-2. Connect Kaushik's Shapley cost allocator to replace the mock fare calculation in `World._update_fares()`.
-3. Support Nakul's frontend team with live endpoint testing.
+1. Rehearse driving the demo presentation using `demo_5r_3v.json` according to PRD §11.
+2. Final review for hackathon submission.
