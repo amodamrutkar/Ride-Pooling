@@ -116,28 +116,53 @@ poolIQ/
    - Comprehensive pytest suite covering simulation clock, vehicle kinematics, fallback matrix calculations, and scenario generation
 
 ### Future Scope (Next Phases)
-- **Batching & Rebalancing (Amod):** Request batching window (30s) and idle vehicle repositioning toward high-demand hubs.
-- **Dispatch & Optimizer (Parth):** Insertion heuristics, ALNS/OR-Tools formulation for min cost & delay.
-- **Hard Constraint Validator (Amod / Parth):** Capacity limits, max detour (1.4x direct), time window compliance, onboard sequence guarantees.
-- **Dynamic Pricing (Parth):** Base fare + distance + surge factor based on demand/supply ratio.
-- **Live Metrics (Amod):** Pooling efficiency, detour ratio, SLA compliance, vehicle utilization.
-- **React Frontend (Nakul):** Leaflet dark tile map, vehicle markers, rider route polylines, operator control panel.
+- **Batching & Rebalancing (Ketan):** Request batching window (30s) and adaptive flush policy.
+- **Hard Constraint Validator (Ketan):** Capacity limits, max detour (1.15x direct), time window compliance, onboard sequence guarantees.
+- **Dynamic Pricing & Shapley (Kaushik):** Shapley cost allocation, baselines, and live fairness audit.
+- **Live Metrics (Kaushik):** Pooling efficiency, detour ratio, SLA compliance, vehicle utilization.
+- **React Frontend (Nakul):** MapLibre GL map, vehicle markers, rider route polylines, operator control panel.
 
 ---
 
-## Nakul (Frontend Lead — Dashboard, Rider Mobile View, Visual Polish)
+## Spandan (Optimization Core Lead)
 
 ### Current Prompt / Objective
-Build the explainable frontend for PoolIQ: a dark control-room operator dashboard (`/`) and a mobile-first rider interface (`/rider`) adhering strictly to the Stitch UI design specifications and PRD contracts. Make dynamic batching, mathematical proof badges, and Shapley cost allocations clear without requiring judges to inspect code.
+Build the multi-algorithm optimization engine core for PoolIQ: OSRM matrix provider with local JSON disk cache and automatic offline fallback, grid-based spatial index for candidate vehicle filtering, 5 pluggable dispatch strategies (`solo`, `greedy_fcfs`, `loud_insertion`, `batch_matching`, `hybrid`), OR-Tools VRPTW solver polish stage, and the Algorithm Arena runner.
 
 ### Tech Decisions & Architecture
-- **Framework & Tooling:** React 19 + Vite 8 + Tailwind CSS v4 + React Router v7.
-- **Mapping & Geospatial:** Leaflet 1.9 + React-Leaflet 5 with CartoDB dark tile layer (`dark_all`). Custom DOM `L.divIcon` markers for vehicles (showing ID + occupancy load) and pickup/drop stops.
-- **Design System:** Aligned with Stitch `DESIGN.md` tokens: Obsidian surface (`#0A0A0F`, `#131318`), Telemetry accent (`#0ED4A8`), Inter & JetBrains Mono typography, 4px/8px grid system. No AI clichés or purple gradients.
-- **State Management & Polling:** Polling `/api/state` every 1000ms with automatic pause on document tab hidden (`document.visibilityState`). Graceful fallback to `mockState` when offline.
-- **Interactive Capabilities:**
-  - **Click-to-Add Request:** Click 1 for pickup, Click 2 for destination &rarr; POST to `/api/requests`.
-  - **Before / After Diff Toggle:** Displays old pre-insertion route as dashed grey (`#6B6B76`) and newly optimized pooled route as solid teal (`#0ED4A8`).
-  - **Algorithm Arena:** Interactive benchmark across Strategies A–E with metric winner highlights.
-  - **Explainable Rejection UI:** Reason code toast (`DETOUR_EXCEEDED`) preserving existing rider commitments.
-- **Mobile Rider Flow (`/rider`):** 390px mobile-first responsive layout traversing Request &rarr; Sliding Window Matching &rarr; Active Ride with multi-stop itinerary and Shapley fair fare savings.
+- **Dispatch Protocol & Context (`backend/engine/dispatch/__init__.py`):**
+  - `Dispatcher` protocol defining standard `dispatch(batch, fleet, ctx) -> DispatchResult`.
+  - `DispatchCtx` container injecting `matrix`, `now_s`, parameters (`detour_cap=0.15`, `max_wait_s=480s`), and optional `validator` callable.
+- **Routing & Matrix Cache (`backend/engine/routing/osrm.py`):**
+  - `OsrmProvider` querying OSRM Table API, caching queries on disk as JSON (`backend/data/cache/`), with 2s timeout and automatic fallback to `FallbackMatrixProvider`.
+- **Spatial Index (`backend/engine/routing/spatial_index.py`):**
+  - Grid cell size `0.0045°` (~500m). Indexes stops of active vehicle routes. `candidates(pickup, k=8)` returns top K vehicles with nearby stops or idle status.
+- **5 Dispatch Strategies (`backend/engine/dispatch/`):**
+  1. `solo.py`: 1 vehicle per rider (no pooling baseline).
+  2. `greedy_fcfs.py`: Nearest feasible vehicle append at route end.
+  3. `loud_insertion.py`: LOUD-inspired exact best insertion evaluating all (i, j) stop pairs with O(1) slack array lookups.
+  4. `batch_matching.py`: Matrix of request x vehicle insertion costs solved via `scipy.optimize.linear_sum_assignment` (Hungarian algorithm).
+  5. `hybrid.py`: Strategy D + OR-Tools VRPTW solver polish stage (`backend/engine/optimizer/ortools_vrptw.py`) with 1.5s time limit and warm-starting.
+- **Algorithm Arena (`scripts/run_arena.py`):**
+  - Benchmarks strategies A–E on identical seeded scenarios.
+- **Integration Harness & Test Suite (`backend/tests/test_dispatch.py`):**
+  - Uses `stub_validator` for testing in isolation until Ketan's validator (`backend/engine/validator/validator.py`) is complete.
+  - When ready, Ketan's `validate_route_plan` is passed into `DispatchCtx.validator` without modifying dispatch code.
+
+## Ketan (Backend Platform, Batcher, Validator & Security Lead)
+
+### Current Objective
+Deliver the platform spine of PoolIQ: independent zero-trust constraint validator, adaptive sliding-window batcher, FastAPI endpoints per PRD §6, World state orchestrator with before/after route diffs, SQLite snapshots, and defense-in-depth security hardening.
+
+### Tech Decisions & Architecture
+- **Independent Validator (`backend/engine/validator/validator.py`):** Pure functional validator completely decoupled from routing/dispatch/optimization libraries. Enforces precedence, vehicle capacity at every stop, pickup arrival windows, and the strict 15% maximum detour rule. Computes per-rider detour % and wait times.
+- **Sliding-Window Batcher (`backend/engine/batching/sliding_window.py`):** Injected-clock state machine supporting TIMER (30s), SIZE (12 requests), and URGENCY flushes (pickup deadline proximity). Includes defer-then-reject rolling horizon logic.
+- **World Orchestrator (`backend/app/world.py`):** Single point of state coordination. Routes are only committed to vehicles if the independent validator passes; if invalid, route versions stay frozen and violating requests are deferred or rejected with clear reason codes.
+- **FastAPI REST Spine (`backend/app/routes.py`, `backend/app/main.py`):**
+  - High speed `/api/state` endpoint (<20ms response time via in-memory pre-serialized state cache).
+  - Admin endpoints (`/api/scenarios/*/load`, `/api/sim/control`) protected via Bearer token.
+  - Geo-fenced input schema bounded to Nashik coordinates [19.8-20.2 lat, 73.6-74.0 lon].
+  - Security headers middleware and rate limiting.
+  - Diff tracking via `/api/diff/{request_id}`.
+- **OpenAPI Documentation:** Auto-exported to `docs/openapi.json`.
+- **Security Documentation:** `docs/security.md` containing threat model matrix and operational guidance.

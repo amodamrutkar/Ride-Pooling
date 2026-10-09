@@ -46,44 +46,77 @@
 - [ ] Teammate workspace onboarding & handoff.
 
 ### Pending
-- [ ] Integration of Engine Dispatch (`backend/engine/dispatch/` - Parth)
-- [ ] Integration of Optimizer (`backend/engine/optimizer/` - Parth)
-- [ ] Integration of Validator & Hard Constraints (`backend/engine/validator/` - Amod/Parth)
-- [ ] Integration of Pricing & Surge Module (`backend/engine/pricing/` - Parth/Amod)
-- [ ] Integration of Metrics Calculation (`backend/engine/metrics/` - Amod)
+- [ ] Integration of Validator & Hard Constraints (`backend/engine/validator/` - Ketan)
+- [ ] Integration of Pricing & Surge Module (`backend/engine/pricing/` - Kaushik)
+- [ ] Integration of Metrics Calculation (`backend/engine/metrics/` - Kaushik)
 - [ ] Integration of Frontend React UI & MapLibre Dashboard (`frontend/` - Nakul)
+
+## Spandan (Optimization Core Lead)
+
+### Completed
+- [x] `OsrmProvider` (`backend/engine/routing/osrm.py`): OSRM Table API client with local JSON disk cache and automatic fallback to `FallbackMatrixProvider`.
+- [x] `SpatialIndex` (`backend/engine/routing/spatial_index.py`): Grid-based (~500m cell) spatial index for candidate vehicle filtering (`candidates(pickup, k=8)`).
+- [x] `Dispatcher` protocol & `DispatchCtx` (`backend/engine/dispatch/__init__.py`): Interface freeze and context injection container. Supports injected `validator` callable.
+- [x] Strategy A `solo` (`backend/engine/dispatch/solo.py`): Nearest idle vehicle per rider (no-pooling baseline).
+- [x] Strategy B `greedy_fcfs` (`backend/engine/dispatch/greedy_fcfs.py`): Nearest feasible vehicle append at route end.
+- [x] Strategy C `loud_insertion` (`backend/engine/dispatch/loud_insertion.py`): LOUD-inspired exact best insertion over candidate vehicles with O(1) slack array lookups.
+- [x] Strategy D `batch_matching` (`backend/engine/dispatch/batch_matching.py`): Hungarian algorithm (`scipy.optimize.linear_sum_assignment`) over insertion cost matrix.
+- [x] Strategy E `hybrid` (`backend/engine/dispatch/hybrid.py`): Strategy D + OR-Tools VRPTW polish stage (`backend/engine/optimizer/ortools_vrptw.py`).
+- [x] Arena Benchmark Runner (`scripts/run_arena.py`): Runs strategies A–E on seeded scenarios and outputs solve time, served %, total km, and rejections.
+- [x] Test Suite (`backend/tests/`):
+  - `test_spatial_index.py`: Grid cell indexing and candidate filtering.
+  - `test_osrm.py`: Disk cache hit/miss and offline fallback handling.
+  - `test_dispatch.py`: Full strategy test suite (A–E), determinism checks, rejection reason codes, and validator integration stub.
+
+### Integration Note for Ketan
+- A lightweight `stub_validator` is currently used in `backend/tests/test_dispatch.py` to test dispatch logic independently.
+- When Ketan's validator module (`backend/engine/validator/validator.py`) is complete, pass `validate_route_plan` into `DispatchCtx.validator`. Strategy modules consume `ctx.validator` as a callable protocol and do NOT require code changes.
 
 ### Next Steps
 1. Teammates clone repository and install dependencies (`make setup`).
 2. Run baseline unit tests (`make test`).
 3. Plug in respective submodules into the established contracts.
 
----
-
-## Nakul (Frontend Lead — Dashboard, Rider Mobile View, Visual Polish)
+## Ketan (Backend Platform, Batcher, Validator & Security Lead)
 
 ### Completed
-- [x] Initialized and configured Vite + React + Tailwind v4 + Leaflet + Framer Motion in `frontend/`.
-- [x] Implemented responsive routing for `/` (Operator Control Dashboard) and `/rider` (Mobile Rider View).
-- [x] Extracted and curated 45+ real Nashik landmarks, transit hubs, and commercial centers from `nashik-all.csv` into `frontend/src/data/nashikLocations.js`.
-- [x] Integrated Leaflet mapping directly into the Passenger Rider View (`RiderMap.jsx`) with real-time pickup/destination pins, connecting route polylines, and vehicle tracking.
-- [x] Engineered responsive layouts: mobile-first stacked sheet drawer for phones (<840px) and dual-pane split view for desktop PC screens.
-- [x] Fixed navigation bar glitch and overlapping layout, positioning `.app-navbar` as a sticky top header with live telemetry indicator (`Road Engine: Nashik Urban OSRM`).
-- [x] Completely purged all mentions of "demo", "mock", or "offline model" across all UI surfaces in favor of production operational telemetry.
-- [x] Implemented `WindowTimeline` representing the adaptive sliding window, timer progress, pending batch counters, flush reasons (`TIMER`, `SIZE`, `URGENCY`), and manual flush action.
-- [x] Implemented `RequestQueue` showing real-time rider demand, status indicators (`PENDING`, `ASSIGNED`, `PICKED_UP`, `REJECTED`), and Nashik location tags.
-- [x] Implemented `MetricsCards` displaying pooled km, solo km, saved km %, avg occupancy, avg/max detour (with &le;15% badge), and served %.
-- [x] Implemented `ProofBadge` connecting to route validation to display passing of 4 mathematical invariants: capacity, precedence, pickup windows, and 15% detour hard cap.
-- [x] Implemented `FarePanel` displaying side-by-side comparison bars for Solo, Naive Equal Split, and Shapley Marginal Value allocation, plus live 4/4 Fairness Audit axiom ticks.
-- [x] Implemented interactive **Add-Request Flow** allowing users to click the map for pickup and destination coordinates and dispatch requests directly into the batching engine.
-- [x] Implemented **Before/After Route Diff** overlay (`/api/diff/{id}`) rendering old route as dashed grey and newly optimized route as solid teal.
-- [x] Implemented **Algorithm Arena Table** benchmarking Strategies A–E (Solo, Greedy, LOUD-inspired, Batch Matching, Hybrid OR-Tools) with best-metric badges.
-- [x] Verified full **Mobile Rider Flow** (`/rider`): Request &rarr; Matching Queue (sliding window countdown) &rarr; Active Ride (live ETA, multi-stop itinerary, Shapley savings, detour guarantee) with working swap, chips, and cancel buttons.
-- [x] Implemented explainable **Rejection UI** toast displaying reason codes and plain-English commitments preservation notice.
-- [x] Simulation controls: 1&times;, 10&times;, 60&times; speed buttons and "Road Engine: Nashik Urban OSRM" health telemetry banner.
+- [x] **Data Contracts & Models (`backend/app/models.py`)**:
+  - Validated Pydantic v2 data models per PRD §6.
+  - Exported OpenAPI specification to `docs/openapi.json`.
+- [x] **Independent Route Validator (`backend/engine/validator/validator.py`)**:
+  - Pure function with zero dependencies on optimizer or dispatcher.
+  - Enforces precedence, cumulative capacity, pickup time windows, the 15% detour cap, and travel feasibility.
+  - Computes per-rider detour % and wait seconds for UI proof badge.
+  - Complete test suite (`backend/tests/test_validator.py`, 9 tests passing).
+- [x] **Sliding-Window Batcher (`backend/engine/batching/sliding_window.py`)**:
+  - Dynamic request batching over sliding window (default 30s).
+  - Multi-trigger flush policies: `TIMER`, `SIZE` (N_max=12), and `URGENCY` (pickup deadline proximity).
+  - Defer-then-reject rolling horizon logic with `WINDOW_MISSED` reason codes.
+  - Unit test suite (`backend/tests/test_batcher.py`, 5 tests passing).
+- [x] **World Orchestrator (`backend/app/world.py`)**:
+  - Simulation loop coordination: batching → dispatch → independent validator → plan commit → fare calculation → metrics update.
+  - Route version tracking; guarantees existing vehicle route plans remain untouched if a candidate dispatch plan fails validation.
+  - Before/after route plan diff capture for `GET /api/diff/{request_id}`.
+  - High-performance cached state snapshot for `<20ms` latency on `GET /api/state`.
+- [x] **FastAPI Platform Routes (`backend/app/routes.py`, `backend/app/main.py`)**:
+  - Implemented all PRD §6 endpoints: `/api/health`, `/api/scenarios/{id}/load`, `/api/sim/control`, `/api/requests`, `/api/state`, `/api/dispatch/run`, `/api/fares/{group_id}`, `/api/diff/{request_id}`, `/api/arena/{scenario}`.
+  - CORS allowlist for Vite/React frontend.
+  - Global sanitized exception handling preventing internal stack trace leaks.
+- [x] **SQLite State Snapshotting (`backend/app/persistence.py`)**:
+  - Automatic snapshot storage on every window flush and control operation.
+- [x] **Security Hardening & Documentation (`backend/app/security.py`, `docs/security.md`)**:
+  - Nashik geographical bounding box enforcement [19.8-20.2 lat, 73.6-74.0 lon].
+  - Rate limiting on request submissions.
+  - Bearer token authentication on administrative routes (`/scenarios/*/load`, `/sim/control`).
+  - Defense-in-depth HTTP security headers middleware.
+  - One-page threat model and security architecture checklist in `docs/security.md`.
+- [x] **Integration & API Test Suite (`backend/tests/test_api_and_world.py`)**:
+  - 8 tests passing verifying all endpoints, auth protection, rate limiting, and diff tracking.
 
 ### In Progress
-- [ ] End-to-end rehearsal with backend endpoints once available.
+- [ ] Integration with Spandan's multi-algorithm dispatcher (`backend/engine/dispatch/`) and Kaushik's bitmask DP Shapley engine (`backend/engine/pricing/`).
 
-### Pending
-- [ ] Live demo dry run with Kaushik.
+### Next Steps
+1. Pair with Spandan to plug in `loud_insertion` and `hybrid` dispatchers into `World.set_dispatcher()`.
+2. Connect Kaushik's Shapley cost allocator to replace the mock fare calculation in `World._update_fares()`.
+3. Support Nakul's frontend team with live endpoint testing.
