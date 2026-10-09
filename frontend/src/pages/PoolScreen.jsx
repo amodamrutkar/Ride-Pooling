@@ -113,32 +113,30 @@ export default function PoolScreen({
     }, 600);
   };
 
-  // Matching window simulation and live queue count
-  const [batchProgress, setBatchProgress] = useState(12);
+  // Matching window simulation and live queue count (fast dynamic 2s allocation)
+  const [batchProgress, setBatchProgress] = useState(0.2);
   const [queueCount, setQueueCount] = useState(2);
 
   useEffect(() => {
-    if (backendWindow && typeof backendWindow.elapsed_s === 'number') {
-      setBatchProgress(Math.min(30, Math.floor(backendWindow.elapsed_s)));
+    if (poolStage !== 'matching') {
+      setBatchProgress(0.2);
+      return;
     }
-  }, [backendWindow]);
-
-  useEffect(() => {
-    if (poolStage !== 'matching') return;
-    const interval = setInterval(() => {
+    const timer = setInterval(() => {
       setBatchProgress((prev) => {
-        if (prev >= 30) {
+        const next = Math.round((prev + 0.3) * 10) / 10;
+        if (next >= 2.0) {
+          clearInterval(timer);
           setPoolStage('active');
-          return 0;
+          return 2.0;
         }
-        return prev + 1;
+        return next;
       });
-      // subtle live jitter in nearby queue
-      if (Math.random() > 0.6) {
+      if (Math.random() > 0.5) {
         setQueueCount((q) => (q === 2 ? 3 : 2));
       }
-    }, 1000);
-    return () => clearInterval(interval);
+    }, 250);
+    return () => clearInterval(timer);
   }, [poolStage, setPoolStage]);
 
   // Active ride live vehicle progression & ticking ETA (visibly moves every 2 seconds along road)
@@ -208,11 +206,6 @@ export default function PoolScreen({
             <span className="font-label-mono text-label-mono text-outline uppercase tracking-wider">
               CORRIDOR SELECT
             </span>
-            <div className="absolute inset-x-0 flex justify-center pointer-events-none">
-              <span className="font-body-lg text-body-lg font-medium text-on-surface tracking-tight">
-                Request a Ride
-              </span>
-            </div>
             <span className="px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-mono text-[10px] font-semibold">
               OSRM LIVE
             </span>
@@ -287,7 +280,7 @@ export default function PoolScreen({
             <div className="absolute top-2 left-4 flex items-center gap-1.5 bg-surface-container-high/90 backdrop-blur-md px-2.5 py-1 rounded border border-surface-container-highest/40 z-[400]">
               <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
               <span className="font-label-mono text-[10px] text-on-surface tracking-widest uppercase font-semibold">
-                CORRIDOR: MH-15 · ROAD ROUTING ACTIVE
+                {originHub.shortName} ➔ {destHub.shortName} · ROAD ROUTING ACTIVE
               </span>
             </div>
             <div className="absolute bottom-2 right-4 bg-surface-container-high/90 backdrop-blur-md px-2.5 py-0.5 rounded border border-surface-container-highest/40 z-[400]">
@@ -416,16 +409,16 @@ export default function PoolScreen({
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <span className="font-label-mono text-label-mono text-on-surface-variant uppercase tracking-wider">
-                    Batch Window
+                    Dynamic Batch Allocation
                   </span>
                   <span className="font-label-mono text-label-mono text-primary font-semibold">
-                    {batchProgress}s / 30s
+                    {batchProgress.toFixed(1)}s / 2.0s
                   </span>
                 </div>
                 <div className="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-primary-container transition-all duration-300 ease-out"
-                    style={{ width: `${(batchProgress / 30) * 100}%` }}
+                    className="h-full bg-primary transition-all duration-200 ease-out"
+                    style={{ width: `${Math.min(100, (batchProgress / 2.0) * 100)}%` }}
                   ></div>
                 </div>
               </div>
@@ -585,6 +578,27 @@ export default function PoolScreen({
               </div>
 
               <div className="w-full h-px bg-surface-variant"></div>
+
+              {/* Assigned Verified Woman Pilot Card */}
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-container-low border border-surface-container-high/60">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-xs font-mono">
+                    PD
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-on-surface">Pooja Deshmukh</span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-primary/20 text-primary font-mono text-[9px] font-semibold">
+                        Women-Verified Pilot
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-on-surface-variant">
+                      Tata Tiago EV · IN-MH15-4109 · 4.95 ★
+                    </span>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-[18px] text-primary">verified</span>
+              </div>
 
               {/* Stat Columns: Detour, Wait, Riders */}
               <div className="grid grid-cols-3 gap-2 text-center py-1 bg-surface-container-low rounded-xl p-2 border border-surface-container-high/40">

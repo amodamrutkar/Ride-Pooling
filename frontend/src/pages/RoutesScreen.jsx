@@ -6,7 +6,7 @@ export default function RoutesScreen({ onSelectCorridor }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [corridors, setCorridors] = useState(CORRIDORS);
-  const [selectedCorridorId, setSelectedCorridorId] = useState('mh-09');
+  const [selectedCorridorId, setSelectedCorridorId] = useState('c-central');
   const [efficiency, setEfficiency] = useState(98.4);
 
   // Real-time telemetry simulation for corridors
@@ -25,6 +25,19 @@ export default function RoutesScreen({ onSelectCorridor }) {
     return () => clearInterval(timer);
   }, []);
 
+  const handleFilterClick = (filterKey) => {
+    setActiveFilter(filterKey);
+    const matching = corridors.filter((c) => {
+      if (filterKey === 'all') return true;
+      if (filterKey === 'high') return c.category.includes('high');
+      if (filterKey === 'express') return c.category.includes('express');
+      return true;
+    });
+    if (matching.length > 0) {
+      setSelectedCorridorId(matching[0].id);
+    }
+  };
+
   const filteredCorridors = corridors.filter((c) => {
     const matchesFilter =
       activeFilter === 'all' ||
@@ -40,20 +53,20 @@ export default function RoutesScreen({ onSelectCorridor }) {
   });
 
   return (
-    <div className="flex flex-col w-full px-4 gap-4 text-on-surface select-none pb-8">
+    <div className="flex flex-col w-full px-4 gap-4 text-on-surface select-none pb-8 animate-fade-in">
       {/* Header / Operational Status Bar */}
       <div className="flex items-start justify-between gap-2 pt-1">
         <div className="flex flex-col">
-          <span className="font-label-mono text-label-mono uppercase tracking-widest text-on-surface-variant">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#898B84] font-semibold">
             Live Transit &amp; Dynamic Batches
           </span>
-          <h1 className="font-headline-lg text-headline-lg tracking-tight text-on-surface font-semibold">
-            OPTIMIZED CORRIDORS
+          <h1 className="font-sans text-xl md:text-2xl font-bold tracking-tight text-[#292B29]">
+            Optimized Corridors
           </h1>
         </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-high border border-surface-container-highest/60">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-          <span className="font-label-mono text-label-mono text-primary font-semibold">
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E5E8DF] border border-[#DCDAD4]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#52584A] animate-pulse"></span>
+          <span className="font-mono text-xs text-[#343B30] font-semibold">
             {efficiency}% Efficiency
           </span>
         </div>
@@ -66,88 +79,84 @@ export default function RoutesScreen({ onSelectCorridor }) {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search corridor or stop..."
-            className="w-full h-11 px-3 pr-16 rounded bg-surface-container text-on-surface placeholder:text-outline font-body-md focus:outline-none focus:ring-1 focus:ring-primary border border-surface-container-high transition-colors"
+            placeholder="Search area or stop (e.g. Gangapur, Satpur)..."
+            className="w-full h-11 px-3.5 pr-16 rounded-xl bg-[#FAF9F6] text-[#292B29] placeholder:text-[#898B84] font-sans text-xs focus:outline-none focus:ring-1 focus:ring-[#858C7B] border border-[#DCDAD4] shadow-xs transition-colors"
           />
-          <span className="absolute right-3 top-3 font-label-mono text-label-mono text-outline uppercase tracking-wider text-[10px]">
-            FILTER
+          <span className="absolute right-3.5 top-3.5 font-mono text-[10px] text-[#898B84] uppercase tracking-wider">
+            SEARCH
           </span>
         </div>
 
         {/* Filter Pills */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
           <button
-            onClick={() => setActiveFilter('all')}
-            className={`filter-pill px-3 py-1.5 rounded font-label-mono text-label-mono uppercase tracking-wider whitespace-nowrap cursor-pointer transition-colors ${
+            onClick={() => handleFilterClick('all')}
+            className={`px-3 py-1.5 rounded-xl font-mono text-[10.5px] uppercase tracking-wider whitespace-nowrap cursor-pointer transition-all ${
               activeFilter === 'all'
-                ? 'bg-surface-container-highest text-primary font-bold border border-primary/40'
-                : 'bg-surface-container text-on-surface-variant hover:text-on-surface border border-surface-container-high'
+                ? 'bg-[#30312F] text-white font-bold shadow-xs'
+                : 'bg-[#FAF9F6] text-[#686B66] hover:text-[#292B29] border border-[#DCDAD4]'
             }`}
           >
-            All Corridors
+            All Corridors ({corridors.length})
           </button>
           <button
-            onClick={() => setActiveFilter('high')}
-            className={`filter-pill px-3 py-1.5 rounded font-label-mono text-label-mono uppercase tracking-wider whitespace-nowrap cursor-pointer transition-colors ${
+            onClick={() => handleFilterClick('high')}
+            className={`px-3 py-1.5 rounded-xl font-mono text-[10.5px] uppercase tracking-wider whitespace-nowrap cursor-pointer transition-all ${
               activeFilter === 'high'
-                ? 'bg-surface-container-highest text-primary font-bold border border-primary/40'
-                : 'bg-surface-container text-on-surface-variant hover:text-on-surface border border-surface-container-high'
+                ? 'bg-[#30312F] text-white font-bold shadow-xs'
+                : 'bg-[#FAF9F6] text-[#686B66] hover:text-[#292B29] border border-[#DCDAD4]'
             }`}
           >
-            High Demand
+            High Demand ({corridors.filter((c) => c.category.includes('high')).length})
           </button>
           <button
-            onClick={() => setActiveFilter('express')}
-            className={`filter-pill px-3 py-1.5 rounded font-label-mono text-label-mono uppercase tracking-wider whitespace-nowrap cursor-pointer transition-colors ${
+            onClick={() => handleFilterClick('express')}
+            className={`px-3 py-1.5 rounded-xl font-mono text-[10.5px] uppercase tracking-wider whitespace-nowrap cursor-pointer transition-all ${
               activeFilter === 'express'
-                ? 'bg-surface-container-highest text-primary font-bold border border-primary/40'
-                : 'bg-surface-container text-on-surface-variant hover:text-on-surface border border-surface-container-high'
+                ? 'bg-[#30312F] text-white font-bold shadow-xs'
+                : 'bg-[#FAF9F6] text-[#686B66] hover:text-[#292B29] border border-[#DCDAD4]'
             }`}
           >
-            Express Pools
+            Express Pools ({corridors.filter((c) => c.category.includes('express')).length})
           </button>
         </div>
       </section>
 
       {/* Schematic Vector & Leaflet Map Deck with Permanent Location Name Badges */}
-      <section className="relative w-full rounded-2xl bg-surface-container-lowest overflow-hidden p-3.5 border border-surface-container-high shadow-xl">
-        <div className="flex items-center justify-between pb-2">
+      <section className="relative w-full rounded-2xl bg-[#30312F] overflow-hidden p-3.5 border border-[#424440] shadow-md flex flex-col gap-2">
+        <div className="flex items-center justify-between pb-1">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-            <span className="font-label-mono text-label-mono text-on-surface uppercase tracking-wider font-semibold">
+            <span className="w-2 h-2 rounded-full bg-[#858C7B] animate-pulse"></span>
+            <span className="font-mono text-xs text-[#F6F5F1] uppercase tracking-wider font-semibold">
               Live Network Graph
             </span>
           </div>
-          <span className="font-label-mono text-label-mono text-outline text-[10px]">
+          <span className="font-mono text-[10px] text-[#A3A69D]">
             Nashik Urban Node
           </span>
         </div>
 
-        {/* Live Leaflet Multi-Corridor Map View with ESRI Dark Tiles and Badges */}
-        <div className="relative w-full h-56 rounded-xl bg-surface-dim overflow-hidden border border-surface-container-high/60">
+        {/* Live Leaflet Multi-Corridor Map View */}
+        <div className="relative w-full h-56 rounded-xl overflow-hidden border border-[#424440] bg-[#131318]">
           <LeafletMap
             center={[19.9977, 73.7803]}
             zoom={12}
-            corridors={corridors}
+            corridors={filteredCorridors}
             selectedCorridorId={selectedCorridorId}
             height="224px"
           />
         </div>
 
-        {/* Vector Legend */}
-        <div className="flex items-center justify-between pt-2.5">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-1 rounded-sm bg-primary"></span>
-            <span className="font-label-mono text-[10px] text-on-surface font-semibold">MH-15 Central</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-1 rounded-sm bg-[#38bdf8]"></span>
-            <span className="font-label-mono text-[10px] text-on-surface-variant font-semibold">MH-09 Tech</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-1 rounded-sm bg-[#9d86e9]"></span>
-            <span className="font-label-mono text-[10px] text-on-surface-variant font-semibold">MH-03 Link</span>
-          </div>
+        {/* Vector Legend without MH codes */}
+        <div className="flex items-center justify-between pt-1 overflow-x-auto no-scrollbar gap-2">
+          {filteredCorridors.slice(0, 3).map((c) => (
+            <div key={c.id} className="flex items-center gap-1.5 shrink-0">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }}></span>
+              <span className="font-mono text-[10px] text-[#F6F5F1] font-semibold truncate max-w-[120px]">
+                {c.code}
+              </span>
+            </div>
+          ))}
         </div>
       </section>
 

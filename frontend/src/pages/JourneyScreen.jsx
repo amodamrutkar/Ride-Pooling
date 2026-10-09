@@ -140,10 +140,10 @@ export default function JourneyScreen({ activeRide = null, assignedVehicle = nul
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-[#F6F5F1]">
-                {assignedVehicle?.model || 'Tata Tigor EV'}
+                {assignedVehicle?.model || 'Tata Tiago EV'}
               </span>
               <span className="font-mono text-[10px] text-[#A3A69D]">
-                MH-15-8821 · Driver Sunil S.
+                MH-15-4109 · Pilot Anjali Patil (Women-Verified)
               </span>
             </div>
           </div>

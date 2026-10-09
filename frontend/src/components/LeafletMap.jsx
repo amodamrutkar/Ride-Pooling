@@ -444,8 +444,7 @@ export default function LeafletMap({
           <rect width="100%" height="100%" fill="url(#cartesian-grid)" />
         </svg>
       </div>
-      {/* Vignette */}
-      <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-surface/30 pointer-events-none" />
+      {/* Map Content Container */}
     </div>
   );
 }
