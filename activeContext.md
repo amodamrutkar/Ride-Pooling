@@ -116,9 +116,36 @@ poolIQ/
    - Comprehensive pytest suite covering simulation clock, vehicle kinematics, fallback matrix calculations, and scenario generation
 
 ### Future Scope (Next Phases)
-- **Batching & Rebalancing (Amod):** Request batching window (30s) and idle vehicle repositioning toward high-demand hubs.
-- **Dispatch & Optimizer (Parth):** Insertion heuristics, ALNS/OR-Tools formulation for min cost & delay.
-- **Hard Constraint Validator (Amod / Parth):** Capacity limits, max detour (1.4x direct), time window compliance, onboard sequence guarantees.
-- **Dynamic Pricing (Parth):** Base fare + distance + surge factor based on demand/supply ratio.
-- **Live Metrics (Amod):** Pooling efficiency, detour ratio, SLA compliance, vehicle utilization.
+- **Batching & Rebalancing (Ketan):** Request batching window (30s) and adaptive flush policy.
+- **Hard Constraint Validator (Ketan):** Capacity limits, max detour (1.15x direct), time window compliance, onboard sequence guarantees.
+- **Dynamic Pricing & Shapley (Kaushik):** Shapley cost allocation, baselines, and live fairness audit.
+- **Live Metrics (Kaushik):** Pooling efficiency, detour ratio, SLA compliance, vehicle utilization.
 - **React Frontend (Nakul):** MapLibre GL map, vehicle markers, rider route polylines, operator control panel.
+
+---
+
+## Spandan (Optimization Core Lead)
+
+### Current Prompt / Objective
+Build the multi-algorithm optimization engine core for PoolIQ: OSRM matrix provider with local JSON disk cache and automatic offline fallback, grid-based spatial index for candidate vehicle filtering, 5 pluggable dispatch strategies (`solo`, `greedy_fcfs`, `loud_insertion`, `batch_matching`, `hybrid`), OR-Tools VRPTW solver polish stage, and the Algorithm Arena runner.
+
+### Tech Decisions & Architecture
+- **Dispatch Protocol & Context (`backend/engine/dispatch/__init__.py`):**
+  - `Dispatcher` protocol defining standard `dispatch(batch, fleet, ctx) -> DispatchResult`.
+  - `DispatchCtx` container injecting `matrix`, `now_s`, parameters (`detour_cap=0.15`, `max_wait_s=480s`), and optional `validator` callable.
+- **Routing & Matrix Cache (`backend/engine/routing/osrm.py`):**
+  - `OsrmProvider` querying OSRM Table API, caching queries on disk as JSON (`backend/data/cache/`), with 2s timeout and automatic fallback to `FallbackMatrixProvider`.
+- **Spatial Index (`backend/engine/routing/spatial_index.py`):**
+  - Grid cell size `0.0045°` (~500m). Indexes stops of active vehicle routes. `candidates(pickup, k=8)` returns top K vehicles with nearby stops or idle status.
+- **5 Dispatch Strategies (`backend/engine/dispatch/`):**
+  1. `solo.py`: 1 vehicle per rider (no pooling baseline).
+  2. `greedy_fcfs.py`: Nearest feasible vehicle append at route end.
+  3. `loud_insertion.py`: LOUD-inspired exact best insertion evaluating all (i, j) stop pairs with O(1) slack array lookups.
+  4. `batch_matching.py`: Matrix of request x vehicle insertion costs solved via `scipy.optimize.linear_sum_assignment` (Hungarian algorithm).
+  5. `hybrid.py`: Strategy D + OR-Tools VRPTW solver polish stage (`backend/engine/optimizer/ortools_vrptw.py`) with 1.5s time limit and warm-starting.
+- **Algorithm Arena (`scripts/run_arena.py`):**
+  - Benchmarks strategies A–E on identical seeded scenarios.
+- **Integration Harness & Test Suite (`backend/tests/test_dispatch.py`):**
+  - Uses `stub_validator` for testing in isolation until Ketan's validator (`backend/engine/validator/validator.py`) is complete.
+  - When ready, Ketan's `validate_route_plan` is passed into `DispatchCtx.validator` without modifying dispatch code.
+
