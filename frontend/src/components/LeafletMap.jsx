@@ -160,14 +160,23 @@ export default function LeafletMap({
         }
       });
 
-      if (selectedCorrBounds.length > 0) {
-        if (lastFitCorridorRef.current !== selectedCorridorId) {
-          lastFitCorridorRef.current = selectedCorridorId;
+      const corridorsSig = corridors.map(c => c.id).sort().join(',');
+      const signatureChanged = lastRouteKeyRef.current !== corridorsSig;
+      
+      if (signatureChanged) {
+        lastRouteKeyRef.current = corridorsSig;
+        lastFitCorridorRef.current = selectedCorridorId;
+        if (bounds.length > 0) {
           try {
-            map.flyToBounds(selectedCorrBounds, { padding: [50, 50], duration: 1.2 });
+            map.fitBounds(bounds, { padding: [35, 35], maxZoom: 14 });
           } catch (e) {}
         }
-      } else if (bounds.length > 0) {
+      } else if (selectedCorrBounds.length > 0 && lastFitCorridorRef.current !== selectedCorridorId) {
+        lastFitCorridorRef.current = selectedCorridorId;
+        try {
+          map.flyToBounds(selectedCorrBounds, { padding: [45, 45], duration: 1.0 });
+        } catch (e) {}
+      } else if (bounds.length > 0 && !lastFitCorridorRef.current) {
         try {
           map.fitBounds(bounds, { padding: [35, 35] });
         } catch (e) {}

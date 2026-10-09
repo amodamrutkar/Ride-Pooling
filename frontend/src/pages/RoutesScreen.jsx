@@ -120,6 +120,24 @@ export default function RoutesScreen({ onSelectCorridor }) {
             Express Pools ({corridors.filter((c) => c.category.includes('express')).length})
           </button>
         </div>
+
+        {/* Filter Active Informational Banner */}
+        {activeFilter === 'express' && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#E5E8DF] border border-[#858C7B]/40 text-[#292B29] text-xs font-mono animate-fade-in">
+            <span className="material-symbols-outlined text-[17px] text-[#52584A]">bolt</span>
+            <span>
+              <strong>Express Pools Active:</strong> Showing {filteredCorridors.length} direct, point-to-point commuter corridors with minimal stops and fast ETAs.
+            </span>
+          </div>
+        )}
+        {activeFilter === 'high' && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#F4EBE2] border border-[#DCDAD4] text-[#292B29] text-xs font-mono animate-fade-in">
+            <span className="material-symbols-outlined text-[17px] text-[#A66030]">local_fire_department</span>
+            <span>
+              <strong>High Demand Corridors:</strong> Showing {filteredCorridors.length} high-frequency arterial transit routes with frequent vehicle dispatches.
+            </span>
+          </div>
+        )}
       </section>
 
       {/* Schematic Vector & Leaflet Map Deck with Permanent Location Name Badges */}
@@ -149,10 +167,10 @@ export default function RoutesScreen({ onSelectCorridor }) {
 
         {/* Vector Legend without MH codes */}
         <div className="flex items-center justify-between pt-1 overflow-x-auto no-scrollbar gap-2">
-          {filteredCorridors.slice(0, 3).map((c) => (
+          {filteredCorridors.slice(0, 4).map((c) => (
             <div key={c.id} className="flex items-center gap-1.5 shrink-0">
               <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }}></span>
-              <span className="font-mono text-[10px] text-[#F6F5F1] font-semibold truncate max-w-[120px]">
+              <span className="font-mono text-[10px] text-[#F6F5F1] font-semibold truncate max-w-[130px]">
                 {c.code}
               </span>
             </div>
@@ -164,6 +182,7 @@ export default function RoutesScreen({ onSelectCorridor }) {
       <section className="flex flex-col gap-3" id="corridor-list">
         {filteredCorridors.map((corridor) => {
           const isSelected = selectedCorridorId === corridor.id;
+          const isExpress = corridor.category.includes('express');
           return (
             <article
               key={corridor.id}
@@ -176,13 +195,22 @@ export default function RoutesScreen({ onSelectCorridor }) {
             >
               <div className="flex items-start justify-between">
                 <div className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-headline-md text-headline-md font-semibold text-on-surface">
                       {corridor.name}
                     </span>
-                    <span className="px-1.5 py-0.5 rounded bg-primary-container/20 text-primary font-label-mono text-[10px] uppercase font-bold tracking-wider">
-                      {corridor.status}
-                    </span>
+                    {isExpress && (
+                      <span className="px-2 py-0.5 rounded-full bg-[#E5E8DF] text-[#343B30] font-mono text-[9.5px] uppercase font-bold flex items-center gap-1 border border-[#858C7B]/40">
+                        <span className="material-symbols-outlined text-[13px] text-[#52584A]">bolt</span>
+                        EXPRESS POOL
+                      </span>
+                    )}
+                    {corridor.category.includes('high') && (
+                      <span className="px-2 py-0.5 rounded-full bg-[#F4EBE2] text-[#8C522B] font-mono text-[9.5px] uppercase font-bold flex items-center gap-1 border border-[#DCDAD4]">
+                        <span className="material-symbols-outlined text-[13px] text-[#A66030]">local_fire_department</span>
+                        HIGH DEMAND
+                      </span>
+                    )}
                     {isSelected && (
                       <span className="px-1.5 py-0.5 rounded bg-primary text-on-primary font-label-mono text-[9px] uppercase font-extrabold tracking-wider animate-pulse">
                         ● TRACKING ON MAP
@@ -258,9 +286,13 @@ export default function RoutesScreen({ onSelectCorridor }) {
                 e.stopPropagation();
                 onSelectCorridor(corridor);
               }}
-              className="w-full h-10 rounded bg-surface-container-high hover:bg-primary hover:text-on-primary text-primary font-label-mono text-label-mono uppercase tracking-wider font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-surface-container-highest/60 shadow-sm"
+              className={`w-full h-10 rounded font-label-mono text-label-mono uppercase tracking-wider font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
+                isExpress
+                  ? 'bg-[#52584A] hover:bg-[#3D4236] text-[#FAF9F6]'
+                  : 'bg-surface-container-high hover:bg-primary hover:text-on-primary text-primary border border-surface-container-highest/60'
+              }`}
             >
-              <span>Book Pool on this Corridor</span>
+              <span>{isExpress ? '⚡ Book Express Pool on this Corridor' : 'Book Pool on this Corridor'}</span>
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </button>
           </article>
