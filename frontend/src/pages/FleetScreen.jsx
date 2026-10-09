@@ -15,22 +15,23 @@ export default function FleetScreen({ backendVehicles = null }) {
   // Sync with real backend vehicles if available
   useEffect(() => {
     if (backendVehicles && backendVehicles.length > 0) {
-      const merged = backendVehicles.map((bv, idx) => {
-        const fallback = FLEET_VEHICLES[idx % FLEET_VEHICLES.length];
+      const merged = FLEET_VEHICLES.map((fallback, idx) => {
+        const bv = backendVehicles[idx];
+        if (!bv) return fallback;
         const hasRoute = bv.route && bv.route.length > 0;
         const isOnboard = bv.onboard && bv.onboard.length > 0;
+        const isTransit = hasRoute || isOnboard || fallback.status === 'transit';
         return {
-          id: bv.id,
-          model: fallback.model,
-          license: fallback.license,
-          status: hasRoute || isOnboard ? 'transit' : 'terminal',
-          statusLabel: hasRoute ? 'IN TRANSIT (LIVE POOL)' : 'AT TERMINAL (CBS)',
-          routeVector: hasRoute ? 'Active Optimized Dispatch' : 'Staged at Terminal',
-          speed: hasRoute ? `${Math.floor(25 + Math.random() * 20)} km/h` : '0 km/h',
+          ...fallback,
+          id: bv.id || fallback.id,
+          status: fallback.status === 'maintenance' ? 'maintenance' : (isTransit ? 'transit' : 'terminal'),
+          statusLabel: fallback.status === 'maintenance' ? 'MAINTENANCE' : (isTransit ? 'IN TRANSIT' : 'AT TERMINAL'),
+          routeVector: hasRoute ? 'Active Optimized Dispatch' : fallback.routeVector,
+          speed: fallback.status === 'maintenance' ? '0 km/h' : (isTransit ? (fallback.speed === '0 km/h' ? '36 km/h' : fallback.speed) : '0 km/h'),
           soc: fallback.soc,
           driver: fallback.driver,
-          seatsTotal: bv.capacity || 4,
-          seatsOccupied: (bv.onboard || []).length,
+          seatsTotal: bv.capacity || fallback.seatsTotal,
+          seatsOccupied: bv.onboard ? bv.onboard.length : fallback.seatsOccupied,
           lat: bv.position ? bv.position.lat : fallback.lat,
           lon: bv.position ? bv.position.lon : fallback.lon
         };
@@ -39,35 +40,41 @@ export default function FleetScreen({ backendVehicles = null }) {
     }
   }, [backendVehicles]);
 
-  // Real-time telemetry progression and coordinate motion
+  // Real-time telemetry progression and coordinate motion every 2 seconds
   useEffect(() => {
     if (!autoRefresh) return;
     const timer = setInterval(() => {
-      setRefreshCountdown((prev) => {
-        if (prev <= 1) {
-          // slight telemetry jitter & coordinates slight movement for transit vehicles
-          setVehicles((curr) =>
-            curr.map((v) => {
-              if (v.status !== 'transit') return v;
-              const latJitter = (Math.random() - 0.5) * 0.0012;
-              const lonJitter = (Math.random() - 0.5) * 0.0012;
-              const spd = Math.floor(26 + Math.random() * 18);
-              return {
-                ...v,
-                lat: v.lat + latJitter,
-                lon: v.lon + lonJitter,
-                speed: `${spd} km/h`
-              };
-            })
-          );
-          setAvgSpeed(Math.floor(29 + Math.random() * 5));
-          setUtilization(Math.floor(86 + Math.random() * 5));
-          setActiveBatches(Math.floor(8 + Math.random() * 3));
-          return 5;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      setRefreshCountdown((prev) => (prev <= 1 ? 2 : prev - 1));
+
+      // Coordinate micro-motion & speed fluctuation for transit vehicles
+      setVehicles((curr) =>
+        curr.map((v) => {
+          if (v.status === 'transit') {
+            const latJitter = (Math.random() - 0.5) * 0.0008;
+            const lonJitter = (Math.random() - 0.5) * 0.0008;
+            const spd = Math.floor(32 + Math.random() * 16);
+            return {
+              ...v,
+              lat: v.lat + latJitter,
+              lon: v.lon + lonJitter,
+              speed: `${spd} km/h`
+            };
+          }
+          if (v.status === 'maintenance') {
+            const currentSocNum = parseInt(v.soc) || 32;
+            const newSoc = currentSocNum < 98 ? currentSocNum + 1 : 32;
+            return {
+              ...v,
+              soc: `${newSoc}%`
+            };
+          }
+          return v;
+        })
+      );
+      setAvgSpeed(Math.floor(30 + Math.random() * 6));
+      setUtilization(Math.floor(84 + Math.random() * 6));
+      setActiveBatches(Math.floor(8 + Math.random() * 3));
+    }, 2000);
     return () => clearInterval(timer);
   }, [autoRefresh]);
 
@@ -161,7 +168,7 @@ export default function FleetScreen({ backendVehicles = null }) {
           </span>
         </div>
 
-        {/* Live Leaflet Fleet Cluster Map View with ESRI Dark Tiles and Badges */}
+        {/* Live Leaflet Fleet Cluster Map View */}
         <div className="relative w-full h-56 rounded-xl bg-surface-container-lowest overflow-hidden border border-surface-container-high/60 shadow-inner">
           <LeafletMap
             center={[19.9977, 73.7803]}
@@ -252,20 +259,21 @@ export default function FleetScreen({ backendVehicles = null }) {
             <div
               key={v.id}
               onClick={() => setSelectedVehicleId(v.id)}
-              className={`vehicle-card flex flex-col p-4 rounded-xl cursor-pointer transition-all ${
+              className={`vehicle-card flex flex-col p-3.5 rounded-xl cursor-pointer transition-all ${
                 isSelected
                   ? 'bg-surface-container border-2 border-primary ring-2 ring-primary/20 shadow-xl shadow-primary/10'
                   : 'bg-surface-container-low shadow-md border border-surface-container-high hover:border-primary/40'
               }`}
             >
+              {/* Responsive Header Row - Never truncate labels */}
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-lg bg-surface-container-high flex items-center justify-center text-primary border border-surface-container-highest/40">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary border border-surface-container-highest/40 shrink-0">
                     <span className="material-symbols-outlined text-[20px]">electric_car</span>
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-label-lg text-label-lg font-semibold text-on-surface truncate">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-label-lg text-sm font-bold text-on-surface">
                         Vehicle {v.id}
                       </span>
                       {isSelected && (
@@ -273,82 +281,84 @@ export default function FleetScreen({ backendVehicles = null }) {
                           ● TRACKING
                         </span>
                       )}
-                      <span className="font-label-mono text-[10px] text-outline">·</span>
-                      <span className="font-body-sm text-body-sm text-on-surface-variant truncate">
-                        {v.model}
-                      </span>
                     </div>
-                    <span className="font-label-mono text-[10px] text-outline tracking-wider">
-                      ID #{v.license}
-                    </span>
+                    <div className="flex items-center gap-1 font-body-sm text-[11px] text-on-surface-variant truncate">
+                      <span>{v.model}</span>
+                      <span className="text-outline">·</span>
+                      <span className="font-mono text-outline">#{v.license}</span>
+                    </div>
                   </div>
                 </div>
-                <span className={`px-2.5 py-1 rounded-full font-label-mono text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-                  v.status === 'transit'
-                    ? 'bg-primary-container text-on-primary-container'
-                    : v.status === 'terminal'
-                    ? 'bg-surface-container-highest text-primary'
-                    : 'bg-surface-variant text-outline'
-                }`}>
-                  {v.statusLabel}
-                </span>
-              </div>
-
-            {/* Route Trajectory */}
-            <div className="mt-3 p-2.5 rounded-lg bg-surface-container flex items-center gap-2 border border-surface-container-high/60">
-              <span className="material-symbols-outlined text-primary text-[18px]">turn_sharp_right</span>
-              <div className="flex flex-col min-w-0">
-                <span className="font-label-mono text-[10px] text-outline uppercase">
-                  Active Route Vector
-                </span>
-                <span className="font-body-md text-body-md font-medium text-on-surface truncate">
-                  {v.routeVector}
-                </span>
-              </div>
-            </div>
-
-            {/* Telemetry Segment Bar */}
-            <div className="grid grid-cols-3 gap-2 mt-2.5">
-              <div className="flex flex-col p-2 rounded bg-surface-container-lowest border border-surface-container-high/40">
-                <span className="font-label-mono text-[10px] text-outline uppercase">Speed</span>
-                <span className="font-label-lg text-label-lg text-on-surface font-semibold mt-0.5">
-                  {v.speed}
-                </span>
-              </div>
-
-              {/* Segmented Seat Allocation Bar: 4px wide, 8px high with 2px gaps */}
-              <div className="flex flex-col p-2 rounded bg-surface-container-lowest border border-surface-container-high/40">
-                <div className="flex items-center justify-between">
-                  <span className="font-label-mono text-[10px] text-outline uppercase">Seats</span>
-                  <span className="font-label-mono text-[10px] text-on-surface-variant">
-                    {v.seatsOccupied}/{v.seatsTotal}
+                <div className="shrink-0 flex items-center">
+                  <span className={`px-2.5 py-1 rounded-md font-label-mono text-[9.5px] font-bold uppercase tracking-wider text-center ${
+                    v.status === 'transit'
+                      ? 'bg-primary/15 text-primary border border-primary/30'
+                      : v.status === 'terminal'
+                      ? 'bg-amber-400/15 text-amber-300 border border-amber-400/30'
+                      : 'bg-rose-400/15 text-rose-300 border border-rose-400/30'
+                  }`}>
+                    {v.status === 'transit' ? 'IN TRANSIT' : v.status === 'terminal' ? 'AT TERMINAL' : 'MAINTENANCE'}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 mt-1.5">
-                  {Array.from({ length: v.seatsTotal }).map((_, idx) => (
-                    <div
-                      key={idx}
-                      className="w-2.5 h-3 rounded-[1px] transition-all"
-                      style={{
-                        backgroundColor: idx < v.seatsOccupied ? '#0ED4A8' : '#232328',
-                        boxShadow: idx < v.seatsOccupied ? '0 0 4px #0ED4A8' : 'none'
-                      }}
-                      title={idx < v.seatsOccupied ? 'Reserved Seat' : 'Available Seat'}
-                    />
-                  ))}
+              </div>
+
+              {/* Route Trajectory */}
+              <div className="mt-3 p-2.5 rounded-lg bg-surface-container flex items-center gap-2 border border-surface-container-high/60">
+                <span className="material-symbols-outlined text-primary text-[18px] shrink-0">
+                  {v.status === 'maintenance' ? 'build' : v.status === 'terminal' ? 'local_parking' : 'turn_sharp_right'}
+                </span>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="font-label-mono text-[10px] text-outline uppercase">
+                    {v.status === 'maintenance' ? 'Service Depot Location' : v.status === 'terminal' ? 'Terminal Staging Area' : 'Active Route Vector'}
+                  </span>
+                  <span className="font-body-md text-body-md font-medium text-on-surface truncate">
+                    {v.routeVector}
+                  </span>
                 </div>
               </div>
 
-              <div className="flex flex-col p-2 rounded bg-surface-container-lowest border border-surface-container-high/40">
-                <span className="font-label-mono text-[10px] text-outline uppercase">Battery</span>
-                <span className="font-label-lg text-label-lg text-primary font-semibold mt-0.5">
-                  {v.soc}
-                </span>
+              {/* Telemetry Segment Bar */}
+              <div className="grid grid-cols-3 gap-2 mt-2.5">
+                <div className="flex flex-col p-2 rounded bg-surface-container-lowest border border-surface-container-high/40 min-w-0">
+                  <span className="font-label-mono text-[10px] text-outline uppercase">Speed</span>
+                  <span className="font-label-lg text-label-lg text-on-surface font-semibold mt-0.5 truncate">
+                    {v.speed}
+                  </span>
+                </div>
+
+                {/* Segmented Seat Allocation Bar */}
+                <div className="flex flex-col p-2 rounded bg-surface-container-lowest border border-surface-container-high/40 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-label-mono text-[10px] text-outline uppercase">Seats</span>
+                    <span className="font-label-mono text-[10px] text-on-surface-variant font-semibold">
+                      {v.seatsOccupied}/{v.seatsTotal}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 mt-1.5">
+                    {Array.from({ length: v.seatsTotal }).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className="w-2.5 h-3 rounded-[1px] transition-all"
+                        style={{
+                          backgroundColor: idx < v.seatsOccupied ? '#0ED4A8' : '#232328',
+                          boxShadow: idx < v.seatsOccupied ? '0 0 4px #0ED4A8' : 'none'
+                        }}
+                        title={idx < v.seatsOccupied ? 'Reserved Seat' : 'Available Seat'}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col p-2 rounded bg-surface-container-lowest border border-surface-container-high/40 min-w-0">
+                  <span className="font-label-mono text-[10px] text-outline uppercase">Battery</span>
+                  <span className="font-label-lg text-label-lg text-primary font-semibold mt-0.5 truncate">
+                    {v.soc}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
       </div>
     </div>
   );

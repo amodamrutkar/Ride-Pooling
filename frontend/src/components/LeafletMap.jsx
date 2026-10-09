@@ -83,6 +83,8 @@ export default function LeafletMap({
     };
   }, []);
 
+  const lastRouteKeyRef = useRef('');
+
   // Update map layers on prop changes
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -277,9 +279,13 @@ export default function LeafletMap({
           lineJoin: 'round'
         })
       );
-      try {
-        map.fitBounds(poly.getBounds(), { padding: [50, 50], maxZoom: 15 });
-      } catch (e) {}
+      const routeKey = `${pickup?.lat},${pickup?.lon}->${drop?.lat},${drop?.lon}-${routeCoords.length}`;
+      if (lastRouteKeyRef.current !== routeKey) {
+        lastRouteKeyRef.current = routeKey;
+        try {
+          map.fitBounds(poly.getBounds(), { padding: [50, 50], maxZoom: 15 });
+        } catch (e) {}
+      }
     } else if (!diffPolyline && pickup && drop && (!routeCoords || routeCoords.length <= 1)) {
       const line = addLayer(
         L.polyline([[pickup.lat, pickup.lon], [drop.lat, drop.lon]], {

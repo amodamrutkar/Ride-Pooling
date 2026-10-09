@@ -12,12 +12,16 @@ export default function StatsScreen({ backendMetrics = null }) {
   const [selectedDayIdx, setSelectedDayIdx] = useState(4); // Default Friday
 
   // Live dynamic counter jitter to simulate real-time transit telemetry
+  // Live dynamic counter jitter: updates every 5 seconds adding incremental pooled savings
   const [liveJitter, setLiveJitter] = useState(0);
+  const [lastAddition, setLastAddition] = useState(240);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setLiveJitter((prev) => prev + Math.floor(15 + Math.random() * 25));
-    }, 2800);
+      const added = Math.floor(180 + Math.random() * 140);
+      setLiveJitter((prev) => prev + added);
+      setLastAddition(added);
+    }, 5000);
     return () => clearInterval(timer);
   }, []);
 
@@ -39,8 +43,8 @@ export default function StatsScreen({ backendMetrics = null }) {
       pooledCost: '₹7.64 Lakhs',
       pctOffset: liveSavedPct,
       poolPct: '66.6%',
-      co2: '1,840',
-      saplings: '184',
+      co2: 1840,
+      saplings: 184,
       detour: liveDetour,
       detourMin: '+1.8 min',
       efficiency: '96.8%',
@@ -63,8 +67,8 @@ export default function StatsScreen({ backendMetrics = null }) {
       pooledCost: '₹57.56 Lakhs',
       pctOffset: '33.2%',
       poolPct: '66.8%',
-      co2: '14,250',
-      saplings: '1,425',
+      co2: 14250,
+      saplings: 1425,
       detour: liveDetour,
       detourMin: '+1.7 min',
       efficiency: '97.4%',
@@ -81,7 +85,11 @@ export default function StatsScreen({ backendMetrics = null }) {
   };
 
   const current = baseData[period];
-  const dynamicNetSaved = (current.rawSavings + liveJitter).toLocaleString('en-IN');
+  const dynamicTotalNum = current.rawSavings + liveJitter;
+  const dynamicNetSaved = dynamicTotalNum.toLocaleString('en-IN');
+  const dynamicLakhsStr = `₹${(dynamicTotalNum / 100000).toFixed(2)} Lakhs`;
+  const dynamicCo2Str = (current.co2 + Math.floor(liveJitter * 0.0035)).toLocaleString('en-IN');
+  const dynamicSaplingsStr = Math.round((current.co2 + Math.floor(liveJitter * 0.0035)) / 10).toLocaleString('en-IN');
   const selectedDay = current.weekly[selectedDayIdx] || current.weekly[4];
 
   return (
@@ -142,12 +150,15 @@ export default function StatsScreen({ backendMetrics = null }) {
         </div>
 
         <div className="flex flex-col gap-0.5">
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-baseline gap-2 flex-wrap">
             <span className="font-headline-xl text-2xl md:text-3xl tracking-tight text-on-surface font-bold font-mono">
               ₹{dynamicNetSaved}
             </span>
             <span className="font-label-mono text-xs text-primary font-semibold uppercase">
-              ({current.savingsLakhs} Net Saved)
+              ({dynamicLakhsStr} Net Saved)
+            </span>
+            <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-mono font-bold animate-pulse">
+              +₹{lastAddition}/5s
             </span>
           </div>
           <span className="font-label-mono text-[10px] text-outline uppercase tracking-wider">
@@ -197,12 +208,12 @@ export default function StatsScreen({ backendMetrics = null }) {
             </div>
             <div className="flex items-baseline gap-1 mt-1">
               <span className="font-headline-md text-headline-md font-bold text-on-surface">
-                {current.co2}
+                {dynamicCo2Str}
               </span>
               <span className="font-label-mono text-label-mono text-primary font-semibold">kg</span>
             </div>
             <span className="font-body-sm text-body-sm text-on-surface-variant text-[11px] leading-tight">
-              ≈ {current.saplings} saplings saved
+              ≈ {dynamicSaplingsStr} saplings saved
             </span>
           </div>
 

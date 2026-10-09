@@ -5,6 +5,8 @@ import PoolScreen from './pages/PoolScreen';
 import RoutesScreen from './pages/RoutesScreen';
 import StatsScreen from './pages/StatsScreen';
 import FleetScreen from './pages/FleetScreen';
+import ZeroTrustGate from './components/ZeroTrustGate';
+import RouteDiffView from './components/RouteDiffView';
 import {
   fetchHealth,
   fetchState,
@@ -253,6 +255,7 @@ export default function App() {
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-surface-container-high pb-1">
               {[
                 { id: 'controls', label: 'Controls' },
+                { id: 'gate', label: 'Zero-Trust Gate' },
                 { id: 'traffic', label: 'Traffic' },
                 { id: 'distance', label: 'Distance' },
                 { id: 'alerts', label: 'GPS Alerts' },
@@ -356,6 +359,14 @@ export default function App() {
                   <span className="material-symbols-outlined text-[18px]">bolt</span>
                   <span>Force Dispatch Run</span>
                 </button>
+              </div>
+            )}
+
+            {/* TAB: ZERO-TRUST GATE & DIFF VIEW */}
+            {activeModalTab === 'gate' && (
+              <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-1">
+                <ZeroTrustGate />
+                <RouteDiffView />
               </div>
             )}
 

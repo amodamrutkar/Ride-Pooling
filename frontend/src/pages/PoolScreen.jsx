@@ -147,24 +147,31 @@ export default function PoolScreen({
     return () => clearInterval(interval);
   }, [poolStage, setPoolStage]);
 
-  // Active ride live vehicle progression & ticking ETA
+  // Active ride live vehicle progression & ticking ETA (visibly moves every 2 seconds along road)
   const [vehicleIdx, setVehicleIdx] = useState(0);
-  const [etaSeconds, setEtaSeconds] = useState(160); // 2:40
-  const [currentSpeed, setCurrentSpeed] = useState(32);
+  const [etaSeconds, setEtaSeconds] = useState(157); // 2:37 ETA
+  const [currentSpeed, setCurrentSpeed] = useState(28);
 
   useEffect(() => {
     if (poolStage !== 'active') return;
     const timer = setInterval(() => {
-      setVehicleIdx((prev) => (prev + 1) % activeRouteCoords.length);
-      setEtaSeconds((prev) => (prev > 10 ? prev - 1 : 160));
+      setVehicleIdx((prev) => {
+        const step = Math.max(1, Math.floor(activeRouteCoords.length / 14));
+        return (prev + step) % activeRouteCoords.length;
+      });
+      setEtaSeconds((prev) => (prev > 12 ? prev - 2 : 157));
       setCurrentSpeed(Math.floor(28 + Math.random() * 8));
-    }, 1800);
+    }, 2000);
     return () => clearInterval(timer);
   }, [poolStage, activeRouteCoords.length]);
 
-  const currentVehicleCoord = assignedVehicle && assignedVehicle.position
-    ? assignedVehicle.position
-    : { lat: activeRouteCoords[vehicleIdx][0], lon: activeRouteCoords[vehicleIdx][1] };
+  const currentVehicleCoord = useMemo(() => {
+    if (activeRouteCoords && activeRouteCoords.length > 0) {
+      const safeIdx = vehicleIdx % activeRouteCoords.length;
+      return { lat: activeRouteCoords[safeIdx][0], lon: activeRouteCoords[safeIdx][1] };
+    }
+    return { lat: originHub.lat, lon: originHub.lon };
+  }, [activeRouteCoords, vehicleIdx, originHub]);
 
   const formatEta = (secs) => {
     const m = Math.floor(secs / 60);
@@ -356,23 +363,6 @@ export default function PoolScreen({
                 Request Pooled Ride
               </button>
             </div>
-          </div>
-
-          {/* Hero USP 1 & USP 2 Core Showcase */}
-          <div className="px-4 mt-5 flex flex-col gap-4">
-            <ZeroTrustGate
-              decision={gateDecision}
-              isEvaluating={isVerifyingGate}
-              onRunValidation={handleReverifyGate}
-            />
-
-            <RouteDiffView
-              requestId="R2"
-              onSelectPolyline={(poly, mode) => {
-                setDiffPolyline(poly);
-                setDiffMode(mode);
-              }}
-            />
           </div>
         </div>
       )}
@@ -605,11 +595,11 @@ export default function PoolScreen({
               {/* Stat Columns: Detour, Wait, Riders */}
               <div className="grid grid-cols-3 gap-2 text-center py-1 bg-surface-container-low rounded-xl p-2 border border-surface-container-high/40">
                 <div className="flex flex-col items-center">
-                  <span className="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">
-                    8.2%
+                  <span className="font-headline-md text-headline-md text-primary font-semibold tracking-tight">
+                    +2.1 min
                   </span>
                   <span className="font-label-mono text-label-mono text-outline uppercase tracking-wider mt-0.5 text-[10px]">
-                    Detour
+                    Detour Time
                   </span>
                 </div>
                 <div className="flex flex-col items-center border-x border-surface-variant">
