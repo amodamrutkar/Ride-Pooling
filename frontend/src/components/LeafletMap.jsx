@@ -77,13 +77,24 @@ export default function LeafletMap({
       map.invalidateSize();
     }, 200);
 
+    const timer2 = setTimeout(() => {
+      map.invalidateSize();
+    }, 500);
+
     return () => {
       clearTimeout(timer);
+      clearTimeout(timer2);
       resizeObserver.disconnect();
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
     };
   }, []);
 
   const lastRouteKeyRef = useRef('');
+  const lastFitCorridorRef = useRef(null);
+  const lastFitVehicleRef = useRef(null);
 
   // Update map layers on prop changes
   useEffect(() => {
@@ -150,9 +161,12 @@ export default function LeafletMap({
       });
 
       if (selectedCorrBounds.length > 0) {
-        try {
-          map.flyToBounds(selectedCorrBounds, { padding: [50, 50], duration: 1.2 });
-        } catch (e) {}
+        if (lastFitCorridorRef.current !== selectedCorridorId) {
+          lastFitCorridorRef.current = selectedCorridorId;
+          try {
+            map.flyToBounds(selectedCorrBounds, { padding: [50, 50], duration: 1.2 });
+          } catch (e) {}
+        }
       } else if (bounds.length > 0) {
         try {
           map.fitBounds(bounds, { padding: [35, 35] });
@@ -236,9 +250,12 @@ export default function LeafletMap({
       });
 
       if (targetVehCoord) {
-        try {
-          map.flyTo(targetVehCoord, 14, { duration: 1.2 });
-        } catch (e) {}
+        if (lastFitVehicleRef.current !== selectedVehicleId) {
+          lastFitVehicleRef.current = selectedVehicleId;
+          try {
+            map.flyTo(targetVehCoord, 14, { duration: 1.2 });
+          } catch (e) {}
+        }
       } else if (bounds.length > 0 && !selectedCorridorId) {
         try {
           map.fitBounds(bounds, { padding: [40, 40] });
@@ -414,7 +431,7 @@ export default function LeafletMap({
   }, [center, zoom, pickup, drop, routeCoords, vehicleCoord, corridors, selectedCorridorId, fleetVehicles, selectedVehicleId, diffPolyline, diffMode, showRadar, radarCoords, searchRadiusMeters]);
 
   return (
-    <div className={`relative w-full overflow-hidden ${className}`} style={{ height }}>
+    <div className={`relative w-full overflow-hidden ${className}`} style={{ height: height || '100%' }}>
       <div ref={mapContainerRef} className="w-full h-full" />
       {/* Subtle Cartesian Grid Lines */}
       <div className="absolute inset-0 pointer-events-none opacity-15">

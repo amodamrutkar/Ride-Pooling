@@ -234,7 +234,7 @@ export default function App() {
 
       {/* Settings / Engine Telemetry & Controls Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 bg-black/85 backdrop-blur-md animate-fade-in">
           <div className="w-full max-w-lg bg-surface-container rounded-2xl p-4 md:p-5 border border-surface-container-high shadow-2xl flex flex-col gap-3.5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-surface-container-high pb-2">
               <div className="flex items-center gap-2">
