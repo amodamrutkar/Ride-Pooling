@@ -57,3 +57,46 @@
 1. Teammates clone repository and install dependencies (`make setup`).
 2. Run baseline unit tests (`make test`).
 3. Plug in respective submodules into the established contracts.
+
+---
+
+## Kaushik (Fair Pricing, Metrics, Research & Pitch Lead)
+
+### Completed
+- [x] **Shapley Value Pricing Engine** (`backend/engine/pricing/shapley.py`):
+  - Bitmask DP over precedence-valid stop orderings (capacity respected) to compute characteristic coalition function $v(S)$ from first pickup to last drop.
+  - Classical exact Shapley computation for $n \le 5$ riders.
+  - Seeded Monte-Carlo permutation sampling (2,000 samples) with 95% confidence intervals for $n > 5$ riders.
+  - Flat booking fee integration and exact efficiency reconciliation to executed cost $v(N)$.
+  - Brute-force verification function `_solve_bruteforce_v` for validating DP correctness.
+- [x] **Pricing Baselines** (`backend/engine/pricing/baselines.py`):
+  - `solo_fares`: Unpooled direct cost per rider.
+  - `equal_split`: Total route cost divided equally ($v(N) / n$).
+  - `distance_proportional_split`: Proportional split based on solo route distance.
+- [x] **Fairness Audit** (`backend/engine/pricing/audit.py`):
+  - Verification of core cooperative game axioms:
+    - **Efficiency**: $\sum \phi_i = v(N) \pm ₹0.05$.
+    - **Symmetry**: Symmetric passengers receive identical fares.
+    - **Null Player**: Zero-detour marginal passengers pay $\approx 0$.
+    - **Individual Rationality**: $\phi_i \le v(\{i\})$ with explicit violation flagging and loss reporting.
+- [x] **Metrics Engine** (`backend/engine/metrics/metrics.py`):
+  - Computation of pooled km, solo km, saved km %, distance-weighted average occupancy, empty vehicle deadhead %, average/max detour %, and service rates.
+- [x] **Comprehensive Pytest Suites** (`backend/tests/`):
+  - `test_pricing.py`: Passed all 7 required tests (symmetric riders, subset route null player, 100-group efficiency property test, exact vs Monte-Carlo $n=5$, single rider solo cost, IR violation detection, and DP vs brute-force for $n \le 3$).
+  - `test_metrics.py`: Validated pooled vs solo distance, saved %, occupancy weighting, and detour aggregations.
+- [x] **Pitch & Research Assets** (`docs/pitch/`, `docs/qa.md`):
+  - `docs/pitch/demo_script.md`: 2-minute word-for-word demo script with driver screen cues.
+  - `docs/pitch/deck_outline.md`: 6-slide presentation deck outline.
+  - `docs/pitch/loud_research_note.md`: Research note clarifying LOUD & KaRRi vs our LOUD-inspired implementation.
+  - `docs/qa.md`: 15 rigorous judge Q&A entries.
+
+### In Progress
+- [ ] Integration support for Ketan (FastAPI routes) and Nakul (React UI).
+
+### Pending
+- [ ] Live demo rehearsal with Nakul driving and Kaushik speaking.
+
+### Next Steps
+1. Support Ketan when exposing `/api/fares/{group_id}` endpoint.
+2. Provide Nakul with sample fare and metric JSON payloads for UI rendering.
+
