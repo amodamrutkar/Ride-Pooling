@@ -42,15 +42,30 @@ if os.getenv("FRONTEND_URL"):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Security defense-in-depth headers
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Root status route for cloud providers (Render, Railway, Fly)
+@app.get("/")
+def root():
+    return {
+        "status": "online",
+        "service": "PoolIQ Dispatch Engine",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/api/health",
+        "message": "PoolIQ backend running successfully on Render"
+    }
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok", "service": "PoolIQ"}
 
 # Register routes
 app.include_router(api_router)
