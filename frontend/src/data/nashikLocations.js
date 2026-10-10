@@ -371,55 +371,31 @@ export const FLEET_VEHICLES = [
 ];
 
 /**
- * Returns a realistic shared ride upstream origin where the vehicle is coming from,
+ * Returns a realistic, dynamic shared ride upstream origin where the vehicle is coming from,
  * representing an existing co-rider's pickup point along the transit network.
+ * Dynamic and random each time.
  */
-export function getSharedRideOrigin(originHub, destHub) {
+export function getSharedRideOrigin(originHub, destHub, seed = null) {
   if (!originHub) return NASHIK_HUBS[0];
 
-  // Upstream feeder hubs along natural Nashik transit corridors
-  const upstreamMap = {
-    pvg_coe: 'panchavati',           // Vehicle started in Panchavati with Co-Rider 1, heading to PVG
-    meri_mhasrul: 'panchavati',      // Vehicle started in Panchavati
-    kkwagh: 'adgaon_naka',           // Vehicle started in Adgaon
-    kbt_coe: 'gangapur_rd',          // Vehicle started on Gangapur Rd
-    college_rd: 'gangapur_rd',       // Vehicle comes from Gangapur Rd
-    gangapur_rd: 'satpur_midc',      // Vehicle comes from Satpur industrial belt
-    cbs: 'dwarka',                   // Vehicle comes from Dwarka transit junction
-    panchavati: 'ashok_stambh',      // Vehicle comes from civic center
-    dwarka: 'nashik_road',           // Vehicle comes from station terminal
-    indira_nagar: 'pathardi_phata',  // Vehicle comes from south highway
-    satpur_midc: 'ambad_midc',       // Vehicle comes from Ambad
-    nashik_road: 'jail_road',        // Vehicle comes from Jail Road
-    deolali: 'nashik_road',          // Vehicle comes from station terminal
-    cidco: 'ambad_midc',             // Vehicle comes from Ambad
-    ambad_midc: 'pathardi_phata',    // Vehicle comes from Pathardi
-    mumbai_naka: 'dwarka',           // Vehicle comes from Dwarka
-    ashok_stambh: 'cbs',             // Vehicle comes from CBS
-    navashya: 'gangapur_rd',         // Vehicle comes from Gangapur Rd
-    kapila: 'panchavati',            // Vehicle comes from Panchavati
-    govind_nagar: 'city_centre_mall',
-    city_centre_mall: 'college_rd',
-    mahatma_nagar: 'college_rd',
-    parijat_nagar: 'mahatma_nagar',
-    pathardi_phata: 'indira_nagar',
-    jail_road: 'nashik_road',
-    adgaon_naka: 'panchavati',
-    sandip_univ: 'satpur_midc',
-    met_bhujbal: 'adgaon_naka'
-  };
+  // Candidates list: hubs within realistic driving range (1.2 km to 8.5 km)
+  // that are NOT the user's pickup and NOT the user's destination
+  const candidates = NASHIK_HUBS.filter((h) => {
+    if (h.id === originHub.id) return false;
+    if (destHub && h.id === destHub.id) return false;
+    const dist = Math.hypot((h.lat - originHub.lat) * 111, (h.lon - originHub.lon) * 104);
+    return dist >= 1.2 && dist <= 8.5;
+  });
 
-  const upstreamId = upstreamMap[originHub.id];
-  let hub = upstreamId ? NASHIK_HUBS.find((h) => h.id === upstreamId) : null;
-
-  // Fallback: If not mapped or same as origin or dest, pick a nearby non-conflicting hub
-  if (!hub || hub.id === originHub.id || (destHub && hub.id === destHub.id)) {
-    hub = NASHIK_HUBS.find((h) => {
-      if (h.id === originHub.id || (destHub && h.id === destHub.id)) return false;
-      const d = Math.hypot((h.lat - originHub.lat) * 111, (h.lon - originHub.lon) * 104);
-      return d >= 1.5 && d <= 7.0;
-    }) || (originHub.id === 'cbs' ? NASHIK_HUBS[1] : NASHIK_HUBS[0]);
+  if (candidates.length === 0) {
+    const fallbackList = NASHIK_HUBS.filter((h) => h.id !== originHub.id && (!destHub || h.id !== destHub.id));
+    return fallbackList[Math.floor(Math.random() * fallbackList.length)] || NASHIK_HUBS[0];
   }
 
-  return hub;
+  // If a seed is passed, pick deterministically for that seed, otherwise pick randomly
+  const pickIndex = typeof seed === 'number'
+    ? Math.abs(seed) % candidates.length
+    : Math.floor(Math.random() * candidates.length);
+
+  return candidates[pickIndex];
 }

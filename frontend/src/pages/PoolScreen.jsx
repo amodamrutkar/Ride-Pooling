@@ -224,9 +224,11 @@ export default function PoolScreen({
   const destHub = NASHIK_HUBS[destIndex] || NASHIK_HUBS[2];
 
   // Upstream Shared Ride Origin: Where the vehicle is coming from with an existing co-rider
+  // Dynamic and random each time
+  const [sharedOriginSeed, setSharedOriginSeed] = useState(() => Math.floor(Math.random() * 10000));
   const sharedOriginHub = useMemo(() => {
-    return getSharedRideOrigin(originHub, destHub);
-  }, [originHub, destHub]);
+    return getSharedRideOrigin(originHub, destHub, sharedOriginSeed);
+  }, [originHub, destHub, sharedOriginSeed]);
 
   // Real OSRM Approach Geometry: Route from shared origin to user's pickup
   const [approachRoadRoute, setApproachRoadRoute] = useState(null);
@@ -376,44 +378,62 @@ export default function PoolScreen({
   // Active ride live vehicle progression & ticking ETA
   // Since it's a shared ride, vehicle approaches along approachRouteCoords from shared origin to user pickup
   const [vehicleIdx, setVehicleIdx] = useState(0);
-  const [etaSeconds, setEtaSeconds] = useState(157); // 2:37 ETA
+  const [etaSeconds, setEtaSeconds] = useState(120); // 2:00 ETA
   const [currentSpeed, setCurrentSpeed] = useState(28);
+  const [hasArrivedAtPickup, setHasArrivedAtPickup] = useState(false);
 
   useEffect(() => {
     if (poolStage !== 'active') {
       setVehicleIdx(0);
-      setEtaSeconds(157);
+      setEtaSeconds(120);
+      setHasArrivedAtPickup(false);
       return;
     }
     const timer = setInterval(() => {
+      const totalSteps = approachRouteCoords.length > 0 ? approachRouteCoords.length : 12;
+      const step = Math.max(1, Math.floor(totalSteps / 10));
+
       setVehicleIdx((prev) => {
-        const totalSteps = approachRouteCoords.length > 0 ? approachRouteCoords.length : 12;
-        const step = Math.max(1, Math.floor(totalSteps / 10));
-        return (prev + step) % totalSteps;
+        const next = prev + step;
+        if (next >= totalSteps - 1) {
+          // Reached pickup! Stop the vehicle and do NOT loop.
+          setHasArrivedAtPickup(true);
+          setEtaSeconds(0);
+          setCurrentSpeed(0);
+          clearInterval(timer);
+          return totalSteps - 1;
+        }
+        return next;
       });
-      setEtaSeconds((prev) => (prev > 12 ? prev - 2 : 157));
+
+      setEtaSeconds((prev) => (prev > 12 ? prev - 12 : 0));
       setCurrentSpeed(Math.floor(28 + Math.random() * 8));
-    }, 2000);
+    }, 1500);
+
     return () => clearInterval(timer);
   }, [poolStage, approachRouteCoords.length]);
 
   const currentVehicleCoord = useMemo(() => {
     if (approachRouteCoords && approachRouteCoords.length > 0) {
-      const safeIdx = vehicleIdx % approachRouteCoords.length;
+      const safeIdx = Math.min(vehicleIdx, approachRouteCoords.length - 1);
       return {
         lat: approachRouteCoords[safeIdx][0],
         lon: approachRouteCoords[safeIdx][1],
-        isApproaching: true,
-        label: `Vehicle V1 · En Route from ${sharedOriginHub.shortName}`
+        isApproaching: !hasArrivedAtPickup,
+        label: hasArrivedAtPickup
+          ? `Vehicle V1 · Arrived at ${originHub.shortName} (Board Now)`
+          : `Vehicle V1 · En Route from ${sharedOriginHub.shortName}`
       };
     }
     return {
-      lat: sharedOriginHub ? sharedOriginHub.lat : originHub.lat,
-      lon: sharedOriginHub ? sharedOriginHub.lon : originHub.lon,
-      isApproaching: true,
-      label: 'Vehicle V1 · Approaching Pickup'
+      lat: hasArrivedAtPickup ? originHub.lat : (sharedOriginHub ? sharedOriginHub.lat : originHub.lat),
+      lon: hasArrivedAtPickup ? originHub.lon : (sharedOriginHub ? sharedOriginHub.lon : originHub.lon),
+      isApproaching: !hasArrivedAtPickup,
+      label: hasArrivedAtPickup
+        ? `Vehicle V1 · Arrived at ${originHub.shortName}`
+        : 'Vehicle V1 · Approaching Pickup'
     };
-  }, [approachRouteCoords, vehicleIdx, sharedOriginHub, originHub]);
+  }, [approachRouteCoords, vehicleIdx, hasArrivedAtPickup, sharedOriginHub, originHub]);
 
   const formatEta = (secs) => {
     const m = Math.floor(secs / 60);
@@ -830,8 +850,11 @@ export default function PoolScreen({
               <button
                 id="request-pool-btn"
                 onClick={() => {
+                  const freshSeed = Math.floor(Math.random() * 10000);
+                  setSharedOriginSeed(freshSeed);
+                  const freshSharedOrigin = getSharedRideOrigin(originHub, destHub, freshSeed);
                   setPoolStage('matching');
-                  if (onRequestRide) onRequestRide({ origin: originHub, dest: destHub, sharedOrigin: sharedOriginHub, soloFare, pooledFare: dynamicPoolPrice });
+                  if (onRequestRide) onRequestRide({ origin: originHub, dest: destHub, sharedOrigin: freshSharedOrigin, soloFare, pooledFare: dynamicPoolPrice });
                 }}
                 className="w-full h-12 bg-primary-container hover:bg-primary active:scale-[0.99] text-on-primary font-body-md text-body-md font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer shadow-lg shadow-primary-container/20 mt-1"
               >
@@ -1068,20 +1091,39 @@ export default function PoolScreen({
               {/* Top Row: Arrival & Dynamic ETA */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                  <span className={`w-2 h-2 rounded-full ${hasArrivedAtPickup ? 'bg-primary' : 'bg-primary animate-pulse'}`}></span>
                   <div className="flex flex-col">
                     <span className="font-body-lg text-body-md text-on-surface font-semibold">
-                      Vehicle {assignedVehicle ? assignedVehicle.id : 'V1'} arriving
+                      {hasArrivedAtPickup
+                        ? `Vehicle ${assignedVehicle ? assignedVehicle.id : 'V1'} Arrived at Pickup!`
+                        : `Vehicle ${assignedVehicle ? assignedVehicle.id : 'V1'} arriving`}
                     </span>
                     <span className="text-[11px] font-mono text-primary font-medium">
-                      Shared Pool · Approaching from {sharedOriginHub.shortName} (Co-rider 1 onboard)
+                      {hasArrivedAtPickup
+                        ? `Arrived from ${sharedOriginHub.shortName} · Ready for boarding with Co-rider 1`
+                        : `Shared Pool · Approaching from ${sharedOriginHub.shortName} (Co-rider 1 onboard)`}
                     </span>
                   </div>
                 </div>
-                <div className="px-2.5 py-0.5 rounded bg-surface-container-high border border-surface-container-highest/60 shrink-0">
-                  <span className="font-label-mono text-label-mono text-primary font-semibold tracking-wider">
-                    {formatEta(etaSeconds)}
-                  </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="px-2.5 py-0.5 rounded bg-surface-container-high border border-surface-container-highest/60">
+                    <span className="font-label-mono text-label-mono text-primary font-semibold tracking-wider">
+                      {hasArrivedAtPickup ? 'ARRIVED · BOARD NOW' : formatEta(etaSeconds)}
+                    </span>
+                  </div>
+                  {hasArrivedAtPickup && (
+                    <button
+                      onClick={() => {
+                        setVehicleIdx(0);
+                        setEtaSeconds(90);
+                        setHasArrivedAtPickup(false);
+                      }}
+                      className="p-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-primary font-mono text-[10px] cursor-pointer"
+                      title="Replay vehicle approach"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">replay</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
