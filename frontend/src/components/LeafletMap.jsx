@@ -347,6 +347,22 @@ export default function LeafletMap({
     }
 
     // ─────────────────────────────────────────────────────────────
+    // 3.7 POOLING CATCHMENT PERIMETER (Min 0 km, Max 1.5 km Diameter Boundary)
+    // ─────────────────────────────────────────────────────────────
+    if (pickup && sharedOrigin) {
+      addLayer(
+        L.circle([pickup.lat, pickup.lon], {
+          radius: 1500,
+          color: '#38bdf8',
+          weight: 1.5,
+          dashArray: '5, 7',
+          fillColor: '#38bdf8',
+          fillOpacity: 0.04
+        })
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // 4. ACTIVE ROUTE / POLYLINE
     // ─────────────────────────────────────────────────────────────
     if (!diffPolyline && routeCoords && routeCoords.length > 1) {

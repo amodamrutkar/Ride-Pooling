@@ -266,6 +266,11 @@ export default function PoolScreen({
     return coords;
   }, [approachRoadRoute, sharedOriginHub, originHub]);
 
+  const approachDistanceKm = useMemo(() => {
+    if (!sharedOriginHub || !originHub) return 0.8;
+    return getAccurateDistance(sharedOriginHub, originHub).km;
+  }, [sharedOriginHub, originHub]);
+
   // Real OSRM Road Geometry (Google Maps-like street turn-by-turn polyline for user's trip)
   const [roadRoute, setRoadRoute] = useState(null);
   const [loadingRoute, setLoadingRoute] = useState(false);
@@ -893,24 +898,24 @@ export default function PoolScreen({
               drop={destHub}
               showRadar={true}
               radarCoords={[originHub.lat, originHub.lon]}
-              searchRadiusMeters={450}
+              searchRadiusMeters={1500}
               height="320px"
             />
             {/* Tactical Tag */}
             <div className="absolute top-3 left-4 flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-high/90 backdrop-blur-md border border-surface-container-highest/40 z-[400]">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
               <span className="font-label-mono text-[10px] tracking-wider uppercase text-on-surface font-semibold">
-                APPROACH: {sharedOriginHub.shortName} ➔ {originHub.shortName}
+                APPROACH: {sharedOriginHub.shortName} ➔ {originHub.shortName} ({approachDistanceKm} km)
               </span>
             </div>
             <div className="absolute top-3 right-4 flex gap-1 z-[400]">
               <div className="px-2 py-1 bg-surface-container-high/90 rounded border border-surface-container-highest/40 backdrop-blur-sm">
-                <span className="font-label-mono text-[10px] text-on-surface-variant uppercase">Radius:</span>
-                <span className="font-label-mono text-[10px] text-on-surface font-semibold ml-1">450m</span>
+                <span className="font-label-mono text-[10px] text-on-surface-variant uppercase">Diameter:</span>
+                <span className="font-label-mono text-[10px] text-primary font-semibold ml-1">0–1.5 km</span>
               </div>
               <div className="px-2 py-1 bg-surface-container-high/90 rounded border border-surface-container-highest/40 backdrop-blur-sm">
-                <span className="font-label-mono text-[10px] text-on-surface-variant uppercase">ETA:</span>
-                <span className="font-label-mono text-[10px] text-primary font-semibold ml-1">±3 min</span>
+                <span className="font-label-mono text-[10px] text-on-surface-variant uppercase">Inbound:</span>
+                <span className="font-label-mono text-[10px] text-on-surface font-semibold ml-1">{approachDistanceKm} km</span>
               </div>
             </div>
           </div>
@@ -1078,6 +1083,12 @@ export default function PoolScreen({
                 LIVE TELEMETRY · {currentSpeed} KM/H
               </span>
             </div>
+            <div className="absolute top-3 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-950/80 backdrop-blur-md border border-sky-400/40 z-[400]">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+              <span className="font-label-mono text-[10px] text-sky-200 uppercase font-semibold">
+                DIAMETER: 0–1.5 KM ({approachDistanceKm} KM)
+              </span>
+            </div>
             <div className="absolute bottom-3 left-4 px-2.5 py-1 rounded bg-surface-container-high/90 backdrop-blur-md border border-surface-container-highest/40 z-[400]">
               <span className="font-label-mono text-[10px] text-on-surface uppercase font-semibold">
                 {sharedOriginHub.shortName} ➔ {originHub.shortName} ➔ {destHub.shortName}
@@ -1100,8 +1111,8 @@ export default function PoolScreen({
                     </span>
                     <span className="text-[11px] font-mono text-primary font-medium">
                       {hasArrivedAtPickup
-                        ? `Arrived from ${sharedOriginHub.shortName} · Ready for boarding with Co-rider 1`
-                        : `Shared Pool · Approaching from ${sharedOriginHub.shortName} (Co-rider 1 onboard)`}
+                        ? `Arrived from ${sharedOriginHub.shortName} (${approachDistanceKm} km · within 1.5 km diameter) · Ready for boarding with Co-rider 1`
+                        : `Shared Pool · Inbound from ${sharedOriginHub.shortName} (${approachDistanceKm} km · within 1.5 km diameter)`}
                     </span>
                   </div>
                 </div>

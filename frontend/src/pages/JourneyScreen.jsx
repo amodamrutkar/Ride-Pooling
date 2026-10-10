@@ -197,11 +197,14 @@ export default function JourneyScreen({ activeRide = null, assignedVehicle = nul
               <span className="px-1.5 py-0.2 rounded bg-[#E0F2FE] text-[#0284C7] font-mono text-[9px] font-bold">
                 Co-Rider 1 Onboard
               </span>
+              <span className="px-1.5 py-0.2 rounded bg-sky-100 text-sky-700 font-mono text-[9px] font-bold">
+                Diameter: 0–1.5 km
+              </span>
             </div>
             <p className="text-xs text-[#0C4A6E] font-medium truncate">
               {hasArrived
-                ? `Vehicle has arrived at ${origin.shortName} from ${sharedOrigin.shortName}! Ready for boarding.`
-                : `Vehicle started at ${sharedOrigin.shortName} (${approachDistanceKm} km away) and is approaching your pickup at ${origin.shortName}.`}
+                ? `Vehicle has arrived at ${origin.shortName} from ${sharedOrigin.shortName} (${approachDistanceKm} km · within 1.5 km diameter)! Ready for boarding.`
+                : `Vehicle started at ${sharedOrigin.shortName} (${approachDistanceKm} km away, strictly within 1.5 km diameter) and is approaching your pickup at ${origin.shortName}.`}
             </p>
           </div>
         </div>

@@ -625,29 +625,193 @@ export const FLEET_VEHICLES = [
 /**
  * Returns a realistic, dynamic shared ride upstream origin where the vehicle is coming from,
  * representing an existing co-rider's pickup point along the transit network.
+ * Strictly constrained within a diameter of MIN 0 KM and MAX 1.5 KM from the pickup location.
  * Dynamic and random each time.
  */
 export function getSharedRideOrigin(originHub, destHub, seed = null) {
   if (!originHub) return NASHIK_HUBS[0];
 
-  // Candidates list: hubs within realistic driving range (1.2 km to 8.5 km)
-  // that are NOT the user's pickup and NOT the user's destination
-  const candidates = NASHIK_HUBS.filter((h) => {
-    if (h.id === originHub.id) return false;
-    if (destHub && h.id === destHub.id) return false;
+  const MAX_DIAMETER_KM = 1.5;
+  const MIN_DIAMETER_KM = 0.25;
+
+  // Authentic local micro-feeder landmarks located strictly within [0.4 km, 1.4 km] of Nashik hubs
+  const localFeederMap = {
+    pvg_coe: [
+      { id: "pvg_mhasrul_gate", name: "Mhasrul Gaon Gate (Dindori Rd)", shortName: "Mhasrul Gate", lat: 20.0335, lon: 73.8042 },
+      { id: "pvg_rto_circle", name: "RTO Approach Point (Mhasrul)", shortName: "RTO Approach", lat: 20.0298, lon: 73.8015 },
+      { id: "pvg_dindori_toll", name: "Dindori Road Feeder Bay", shortName: "Dindori Rd Bay", lat: 20.0412, lon: 73.8031 },
+      { id: "pvg_kasturi", name: "Kasturi Nagar Cross (Mhasrul)", shortName: "Kasturi Nagar", lat: 20.0315, lon: 73.7958 },
+      { id: "meri_mhasrul", name: "MERI Colony (Dindori Rd)", shortName: "MERI (Dindori Rd)", lat: 20.0245, lon: 73.7981 }
+    ],
+    navashya: [
+      { id: "navashya_anandwalli", name: "Anandwalli Village Square", shortName: "Anandwalli Sq", lat: 20.0125, lon: 73.7428 },
+      { id: "navashya_ghat", name: "Navashya Riverfront Cross", shortName: "Riverfront Cross", lat: 20.0185, lon: 73.7352 },
+      { id: "navashya_naka", name: "Gangapur Naka Approach", shortName: "Gangapur Naka", lat: 20.0142, lon: 73.7475 },
+      { id: "kbt_coe", name: "NDMVP KBT College of Engineering", shortName: "KBT COE", lat: 20.0132, lon: 73.7554 }
+    ],
+    cbs: [
+      { id: "cbs_shalimar", name: "Shalimar Chowk Point", shortName: "Shalimar Point", lat: 19.9942, lon: 73.7852 },
+      { id: "cbs_canada_corner", name: "Canada Corner Approach", shortName: "Canada Corner", lat: 20.0015, lon: 73.7745 },
+      { id: "ashok_stambh", name: "Ashok Stambh Central Square", shortName: "Ashok Stambh", lat: 20.0020, lon: 73.7870 },
+      { id: "mumbai_naka", name: "Mumbai Naka Gateway", shortName: "Mumbai Naka", lat: 19.9878, lon: 73.7825 }
+    ],
+    college_rd: [
+      { id: "gangapur_rd", name: "Gangapur Road Junction", shortName: "Gangapur Rd", lat: 20.0116, lon: 73.7595 },
+      { id: "college_bhonsala", name: "Bhonsala Military School Gate", shortName: "Bhonsala Gate", lat: 20.0028, lon: 73.7552 },
+      { id: "college_byk", name: "BYK College Campus Corner", shortName: "BYK Corner", lat: 20.0085, lon: 73.7645 },
+      { id: "parijat_nagar", name: "Parijat Nagar Circle", shortName: "Parijat Nagar", lat: 19.9982, lon: 73.7548 },
+      { id: "kbt_coe", name: "NDMVP KBT College of Engineering", shortName: "KBT COE", lat: 20.0132, lon: 73.7554 }
+    ],
+    gangapur_rd: [
+      { id: "kbt_coe", name: "NDMVP KBT College of Engineering", shortName: "KBT COE", lat: 20.0132, lon: 73.7554 },
+      { id: "college_rd", name: "College Road Midtown", shortName: "College Rd", lat: 20.0066, lon: 73.7609 },
+      { id: "gangapur_dhruv", name: "Dhruv Nagar Entry Point", shortName: "Dhruv Nagar", lat: 20.0182, lon: 73.7545 },
+      { id: "gangapur_serene", name: "Serene Meadows Approach", shortName: "Serene Meadows", lat: 20.0165, lon: 73.7482 }
+    ],
+    panchavati: [
+      { id: "ashok_stambh", name: "Ashok Stambh Central Square", shortName: "Ashok Stambh", lat: 20.0020, lon: 73.7870 },
+      { id: "panchavati_kalaram", name: "Kalaram Mandir Gate", shortName: "Kalaram Gate", lat: 20.0082, lon: 73.7965 },
+      { id: "panchavati_nimani", name: "Nimani Bus Stand Point", shortName: "Nimani Stand", lat: 20.0045, lon: 73.7995 },
+      { id: "panchavati_ramkund", name: "Ramkund River Ghat", shortName: "Ramkund Ghat", lat: 20.0055, lon: 73.7915 }
+    ],
+    dwarka: [
+      { id: "kapila", name: "Kapila Teerth / Nandur Naka", shortName: "Kapila Sangam", lat: 19.9984, lon: 73.8143 },
+      { id: "dwarka_kathe", name: "Kathe Galli Junction", shortName: "Kathe Galli", lat: 19.9882, lon: 73.8005 },
+      { id: "dwarka_sarada", name: "Sarada Kanya Vidyalaya Gate", shortName: "Sarada Gate", lat: 19.9915, lon: 73.7955 },
+      { id: "dwarka_highway", name: "Dwarka Highway Underpass", shortName: "Dwarka Pass", lat: 19.9962, lon: 73.8078 }
+    ],
+    nashik_road: [
+      { id: "nashik_bitco", name: "Bitco Point Junction", shortName: "Bitco Point", lat: 19.9515, lon: 73.8375 },
+      { id: "nashik_datta", name: "Datta Mandir Road Point", shortName: "Datta Mandir", lat: 19.9432, lon: 73.8385 },
+      { id: "nashik_muktidham", name: "Muktidham Temple Gate", shortName: "Muktidham Gate", lat: 19.9455, lon: 73.8475 },
+      { id: "nashik_artillery", name: "Artillery Centre Gate", shortName: "Artillery Gate", lat: 19.9395, lon: 73.8445 }
+    ],
+    satpur_midc: [
+      { id: "satpur_iti", name: "Trimbak Road ITI Circle", shortName: "ITI Circle", lat: 19.9925, lon: 73.7265 },
+      { id: "satpur_nice", name: "NICE Industrial Area Point", shortName: "NICE Area", lat: 20.0025, lon: 73.7185 },
+      { id: "satpur_club", name: "Satpur Club House Road", shortName: "Satpur Club", lat: 19.9945, lon: 73.7155 },
+      { id: "satpur_carbon", name: "Carbon Naka Junction", shortName: "Carbon Naka", lat: 19.9895, lon: 73.7315 }
+    ],
+    ambad_midc: [
+      { id: "ambad_siemens", name: "Siemens Point Circle", shortName: "Siemens Point", lat: 19.9555, lon: 73.7325 },
+      { id: "ambad_garware", name: "Garware Point Gate", shortName: "Garware Point", lat: 19.9475, lon: 73.7395 },
+      { id: "ambad_xlo", name: "XLO Point Junction", shortName: "XLO Point", lat: 19.9585, lon: 73.7415 },
+      { id: "ambad_mahindra", name: "Mahindra Engine Plant Gate", shortName: "Mahindra Gate", lat: 19.9482, lon: 73.7312 }
+    ],
+    indira_nagar: [
+      { id: "indira_jogging", name: "Indira Nagar Jogging Track", shortName: "Jogging Track", lat: 19.9785, lon: 73.7775 },
+      { id: "indira_rane", name: "Rane Nagar Cross Link", shortName: "Rane Nagar", lat: 19.9695, lon: 73.7785 },
+      { id: "indira_wadala", name: "Wadala Gaon Road Point", shortName: "Wadala Road", lat: 19.9815, lon: 73.7865 },
+      { id: "indira_ggs", name: "Guru Gobind Singh College Gate", shortName: "GGS College", lat: 19.9682, lon: 73.7875 }
+    ],
+    cidco: [
+      { id: "cidco_trimurti", name: "Trimurti Chowk Sector 4", shortName: "Trimurti Sq", lat: 19.9685, lon: 73.7545 },
+      { id: "cidco_pavan", name: "Pavan Nagar Stadium Point", shortName: "Pavan Nagar", lat: 19.9765, lon: 73.7535 },
+      { id: "cidco_uttam", name: "Uttam Nagar Cross", shortName: "Uttam Nagar", lat: 19.9755, lon: 73.7645 },
+      { id: "cidco_lekhnagar", name: "Lekha Nagar Junction", shortName: "Lekha Nagar", lat: 19.9675, lon: 73.7625 }
+    ],
+    kkwagh: [
+      { id: "kkwagh_shani", name: "Amrutdham Shani Mandir", shortName: "Shani Mandir", lat: 20.0185, lon: 73.8185 },
+      { id: "kkwagh_rasbihari", name: "Rasbihari School Road Point", shortName: "Rasbihari Road", lat: 20.0215, lon: 73.8265 },
+      { id: "kkwagh_toll", name: "Panchavati Toll Naka Approach", shortName: "Toll Approach", lat: 20.0105, lon: 73.8155 },
+      { id: "kkwagh_tawli", name: "Tawli Phata Point", shortName: "Tawli Phata", lat: 20.0075, lon: 73.8285 }
+    ],
+    adgaon_naka: [
+      { id: "adgaon_terminal_gate", name: "Truck Terminal North Gate", shortName: "Terminal Gate", lat: 20.0315, lon: 73.8395 },
+      { id: "adgaon_jatra", name: "Jatra Hotel Highway Point", shortName: "Jatra Point", lat: 20.0245, lon: 73.8315 },
+      { id: "adgaon_medical", name: "Adgaon Medical College Bay", shortName: "Medical Bay", lat: 20.0345, lon: 73.8312 }
+    ],
+    deolali: [
+      { id: "deolali_rest_camp", name: "Rest Camp Road Corner", shortName: "Rest Camp Rd", lat: 19.9195, lon: 73.8355 },
+      { id: "deolali_temple_hill", name: "Temple Hill Approach Point", shortName: "Temple Hill", lat: 19.9095, lon: 73.8275 },
+      { id: "deolali_lam_road", name: "Lam Road Cantonment Bay", shortName: "Lam Road Bay", lat: 19.9165, lon: 73.8385 }
+    ],
+    pathardi_phata: [
+      { id: "pathardi_prashant", name: "Prashant Nagar Stop", shortName: "Prashant Nagar", lat: 19.9455, lon: 73.7615 },
+      { id: "pathardi_gaon", name: "Pathardi Gaon Approach", shortName: "Pathardi Gaon", lat: 19.9355, lon: 73.7695 },
+      { id: "pathardi_deolekar", name: "Deolekar Nagar Junction", shortName: "Deolekar Nagar", lat: 19.9435, lon: 73.7715 }
+    ],
+    jail_road: [
+      { id: "jail_dasak", name: "Dasak Gaon Corner", shortName: "Dasak Corner", lat: 19.9625, lon: 73.8285 },
+      { id: "jail_shani", name: "Shani Mandir Jail Road", shortName: "Shani Mandir", lat: 19.9545, lon: 73.8365 },
+      { id: "jail_upnagar", name: "Upnagar Crossing Point", shortName: "Upnagar Cross", lat: 19.9645, lon: 73.8355 }
+    ]
+  };
+
+  const candidates = [];
+
+  // 1. Gather all NASHIK_HUBS within diameter [0.25 km, 1.5 km]
+  NASHIK_HUBS.forEach((h) => {
+    if (h.id === originHub.id) return;
+    if (destHub && h.id === destHub.id) return;
     const dist = Math.hypot((h.lat - originHub.lat) * 111, (h.lon - originHub.lon) * 104);
-    return dist >= 1.2 && dist <= 8.5;
+    if (dist >= MIN_DIAMETER_KM && dist <= MAX_DIAMETER_KM) {
+      candidates.push({ ...h, distanceToPickupKm: Number(dist.toFixed(2)) });
+    }
   });
 
-  if (candidates.length === 0) {
-    const fallbackList = NASHIK_HUBS.filter((h) => h.id !== originHub.id && (!destHub || h.id !== destHub.id));
-    return fallbackList[Math.floor(Math.random() * fallbackList.length)] || NASHIK_HUBS[0];
+  // 2. Gather specific micro-feeders mapped to this hub within 1.5 km
+  const specificFeeders = localFeederMap[originHub.id] || [];
+  specificFeeders.forEach((f) => {
+    if (destHub && f.id === destHub.id) return;
+    const dist = Math.hypot((f.lat - originHub.lat) * 111, (f.lon - originHub.lon) * 104);
+    if (dist <= MAX_DIAMETER_KM) {
+      candidates.push({ ...f, distanceToPickupKm: Number(dist.toFixed(2)) });
+    }
+  });
+
+  // 3. If candidates count is less than 3 (e.g. for custom pinned locations), dynamically generate local points
+  if (candidates.length < 3) {
+    const radialAngles = [0.75, 2.35, 3.85, 5.45];
+    const radialDists = [0.55, 0.85, 1.15, 1.35]; // All strictly <= 1.4 km
+
+    radialAngles.forEach((angle, idx) => {
+      const d = radialDists[idx % radialDists.length];
+      const dLat = (d / 111.0) * Math.cos(angle);
+      const dLon = (d / 104.0) * Math.sin(angle);
+      const lat = Number((originHub.lat + dLat).toFixed(6));
+      const lon = Number((originHub.lon + dLon).toFixed(6));
+      const dist = Math.hypot((lat - originHub.lat) * 111, (lon - originHub.lon) * 104);
+
+      if (dist <= MAX_DIAMETER_KM) {
+        const directions = ["North-East", "North-West", "South-West", "South-East"];
+        const dirName = directions[idx % directions.length];
+        candidates.push({
+          id: `${originHub.id || 'pickup'}_feeder_${idx + 1}`,
+          name: `${originHub.shortName || 'Pickup'} ${dirName} Bay (${d.toFixed(1)} km)`,
+          shortName: `${originHub.shortName || 'Local'} ${dirName} (${d.toFixed(1)} km)`,
+          lat,
+          lon,
+          distanceToPickupKm: Number(dist.toFixed(2))
+        });
+      }
+    });
   }
 
-  // If a seed is passed, pick deterministically for that seed, otherwise pick randomly
-  const pickIndex = typeof seed === 'number'
-    ? Math.abs(seed) % candidates.length
-    : Math.floor(Math.random() * candidates.length);
+  // Filter out any accidental candidates with dist > 1.5 km
+  const validCandidates = candidates.filter((c) => {
+    const dist = Math.hypot((c.lat - originHub.lat) * 111, (c.lon - originHub.lon) * 104);
+    return dist <= MAX_DIAMETER_KM;
+  });
 
-  return candidates[pickIndex];
+  if (validCandidates.length === 0) {
+    // Guaranteed fallback: 0.8 km offset from pickup
+    const fLat = originHub.lat + (0.8 / 111.0);
+    const fLon = originHub.lon + (0.3 / 104.0);
+    return {
+      id: `${originHub.id || 'pickup'}_feeder_bay`,
+      name: `${originHub.shortName || 'Pickup'} Local Feeder (0.8 km)`,
+      shortName: `${originHub.shortName || 'Pickup'} Feeder (0.8 km)`,
+      lat: Number(fLat.toFixed(6)),
+      lon: Number(fLon.toFixed(6)),
+      distanceToPickupKm: 0.85
+    };
+  }
+
+  // Pick dynamically & randomly each time (or deterministically by seed)
+  const pickIndex = typeof seed === 'number'
+    ? Math.abs(seed) % validCandidates.length
+    : Math.floor(Math.random() * validCandidates.length);
+
+  return validCandidates[pickIndex];
 }
