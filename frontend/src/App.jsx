@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import PoolScreen from './pages/PoolScreen';
@@ -31,7 +31,26 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('pool'); // 'pool' | 'journey' | 'fairness' | 'routes' | 'stats' | 'fleet'
   const [poolStage, setPoolStage] = useState('request'); // 'request' | 'matching' | 'active'
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [activeModalTab, setActiveModalTab] = useState('controls'); // 'controls' | 'traffic' | 'distance' | 'alerts' | 'arena'
+  const [activeModalTab, setActiveModalTab] = useState('controls'); // 'controls' | 'gate' | 'diff' | 'traffic' | 'distance' | 'alerts' | 'arena'
+  const modalScrollRef = useRef(null);
+
+  const [isEvaluatingGate, setIsEvaluatingGate] = useState(false);
+  const [gateDecision, setGateDecision] = useState('COMMITTED');
+
+  const handleReverifyGate = async () => {
+    setIsEvaluatingGate(true);
+    const res = await runDispatch(selectedStrategy);
+    setTimeout(() => {
+      setGateDecision('COMMITTED');
+      setIsEvaluatingGate(false);
+    }, 600);
+  };
+
+  useEffect(() => {
+    if (modalScrollRef.current) {
+      modalScrollRef.current.scrollTop = 0;
+    }
+  }, [activeModalTab, showSettingsModal]);
 
   const handleRoleChange = (newRole) => {
     setUserRole(newRole);
@@ -281,7 +300,10 @@ export default function App() {
       {/* Settings / Engine Telemetry & Controls Modal */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 bg-black/85 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-lg bg-surface-container rounded-2xl p-4 md:p-5 border border-surface-container-high shadow-2xl flex flex-col gap-3.5 max-h-[90vh] overflow-y-auto">
+          <div
+            ref={modalScrollRef}
+            className="w-full max-w-2xl lg:max-w-3xl bg-surface-container rounded-2xl p-4 md:p-5 border border-surface-container-high shadow-2xl flex flex-col gap-3.5 max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between border-b border-surface-container-high pb-2">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-[22px]">tune</span>
@@ -298,10 +320,11 @@ export default function App() {
             </div>
 
             {/* Modal Navigation Tabs */}
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-surface-container-high pb-1">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-surface-container-high pb-2">
               {[
                 { id: 'controls', label: 'Controls' },
-                { id: 'gate', label: 'Zero-Trust Gate' },
+                { id: 'gate', label: 'USP 1 · Trust Gate' },
+                { id: 'diff', label: 'USP 2 · Route Diff' },
                 { id: 'traffic', label: 'Traffic' },
                 { id: 'distance', label: 'Distance' },
                 { id: 'alerts', label: 'GPS Alerts' },
@@ -310,10 +333,10 @@ export default function App() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveModalTab(tab.id)}
-                  className={`px-3 py-1 rounded-lg font-label-mono text-[11px] uppercase tracking-wider transition-colors cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg font-label-mono text-[11px] uppercase tracking-wider transition-colors cursor-pointer shrink-0 ${
                     activeModalTab === tab.id
-                      ? 'bg-primary-container text-on-primary-container font-bold'
-                      : 'text-on-surface-variant hover:text-on-surface'
+                      ? 'bg-primary-container text-on-primary-container font-bold shadow-xs'
+                      : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
                   }`}
                 >
                   {tab.label}
@@ -408,10 +431,62 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB: ZERO-TRUST GATE & DIFF VIEW */}
+            {/* TAB: USP 1 - ZERO-TRUST ROUTE GATE */}
             {activeModalTab === 'gate' && (
-              <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-1">
-                <ZeroTrustGate />
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between p-1.5 rounded-xl bg-surface-container-high/80 border border-surface-container-highest/60">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setActiveModalTab('gate')}
+                      className="px-3 py-1 rounded-lg bg-primary text-on-primary font-label-mono text-xs font-bold uppercase shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+                      <span>USP 1 · Zero-Trust Route Gate</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveModalTab('diff')}
+                      className="px-3 py-1 rounded-lg text-outline hover:text-on-surface font-label-mono text-xs font-medium uppercase transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#38bdf8]"></span>
+                      <span>USP 2 · Explainable Dynamic Re-Pooling</span>
+                    </button>
+                  </div>
+                  <span className="font-label-mono text-[10px] text-outline uppercase hidden sm:inline mr-2">
+                    Validator Barrier
+                  </span>
+                </div>
+                <ZeroTrustGate
+                  decision={gateDecision}
+                  isEvaluating={isEvaluatingGate}
+                  onRunValidation={handleReverifyGate}
+                />
+              </div>
+            )}
+
+            {/* TAB: USP 2 - EXPLAINABLE DYNAMIC RE-POOLING & ROUTE DIFF */}
+            {activeModalTab === 'diff' && (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between p-1.5 rounded-xl bg-surface-container-high/80 border border-surface-container-highest/60">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setActiveModalTab('gate')}
+                      className="px-3 py-1 rounded-lg text-outline hover:text-on-surface font-label-mono text-xs font-medium uppercase transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                      <span>USP 1 · Zero-Trust Route Gate</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveModalTab('diff')}
+                      className="px-3 py-1 rounded-lg bg-[#38bdf8] text-slate-950 font-label-mono text-xs font-bold uppercase shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+                      <span>USP 2 · Explainable Dynamic Re-Pooling</span>
+                    </button>
+                  </div>
+                  <span className="font-label-mono text-[10px] text-outline uppercase hidden sm:inline mr-2">
+                    Diff &amp; Audit
+                  </span>
+                </div>
                 <RouteDiffView />
               </div>
             )}
