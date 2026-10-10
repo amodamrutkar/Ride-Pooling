@@ -14,7 +14,7 @@ import { CORRIDORS } from '../data/nashikLocations';
  */
 export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'express' | 'arterial' | 'feeder'
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'express' | 'arterial' | 'campus' | 'feeder'
   const [corridors, setCorridors] = useState(CORRIDORS);
   const [selectedCorridorId, setSelectedCorridorId] = useState('c-station');
   const [adminNotice, setAdminNotice] = useState('');
@@ -99,7 +99,7 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] uppercase tracking-widest text-[#898B84] font-bold">
-              {userRole === 'admin' ? 'ADMIN DISPATCH CONSOLE' : 'LIVE TRANSIT NETWORK'}
+              {userRole === 'admin' ? 'ADMIN DISPATCH CONSOLE' : 'LIVE ROAD TRANSIT NETWORK'}
             </span>
             {userRole === 'admin' && (
               <span className="bg-[#30312F] text-white px-2 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase">
@@ -108,7 +108,7 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
             )}
           </div>
           <h1 className="font-sans text-xl md:text-2xl font-bold tracking-tight text-[#292B29]">
-            {userRole === 'admin' ? 'Corridor Fleet & Capacity Management' : 'Optimized Metro Corridors'}
+            {userRole === 'admin' ? 'Road Fleet & Capacity Management' : 'High-Demand Road Corridors'}
           </h1>
         </div>
 
@@ -116,7 +116,7 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E5E8DF] border border-[#DCDAD4]">
             <span className="w-2 h-2 rounded-full bg-[#52584A] animate-pulse"></span>
             <span className="font-mono text-xs text-[#343B30] font-bold">
-              {userRole === 'admin' ? `${totalActiveVehicles} Shuttles Deployed` : '98.5% Network Sync'}
+              {userRole === 'admin' ? `${totalActiveVehicles} Shuttles Deployed` : '98.5% Road Network Sync'}
             </span>
           </div>
         </div>
@@ -137,8 +137,8 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
             <span className="font-mono text-[10px] text-[#898B84] uppercase font-bold tracking-wider">
               Network Lines
             </span>
-            <span className="font-mono text-lg font-bold text-[#292B29] mt-0.5">9 Corridors</span>
-            <span className="font-mono text-[9px] text-[#52584A]">3 Express · 3 Arterial · 3 Feeder</span>
+            <span className="font-mono text-lg font-bold text-[#292B29] mt-0.5">{corridors.length} Busy Roads</span>
+            <span className="font-mono text-[9px] text-[#52584A]">4 Express · 5 Arterial · 5 Campus · 5 Suburban</span>
           </div>
           <div className="bg-[#FAF9F6] border border-[#DCDAD4] rounded-xl p-3 flex flex-col shadow-xs">
             <span className="font-mono text-[10px] text-[#898B84] uppercase font-bold tracking-wider">
@@ -171,7 +171,7 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search area, stop, or corridor (e.g. Gangapur, Satpur, Dwarka)..."
+            placeholder="Search area, stop, or corridor (e.g. Gangapur, Satpur, PVG, Dwarka)..."
             className="w-full h-11 px-3.5 pr-16 rounded-xl bg-[#FAF9F6] text-[#292B29] placeholder:text-[#898B84] font-sans text-xs focus:outline-none focus:ring-1 focus:ring-[#858C7B] border border-[#DCDAD4] shadow-xs transition-colors"
           />
           <span className="absolute right-3.5 top-3.5 font-mono text-[10px] text-[#898B84] uppercase tracking-wider font-bold">
@@ -179,7 +179,7 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
           </span>
         </div>
 
-        {/* Clean 4-Way Segregated Filter Pills */}
+        {/* Clean 5-Way Segregated Filter Pills */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
           <button
             onClick={() => handleFilterClick('all')}
@@ -189,7 +189,7 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
                 : 'bg-[#FAF9F6] text-[#686B66] hover:text-[#292B29] border border-[#DCDAD4]'
             }`}
           >
-            All Corridors ({corridors.length})
+            All Busy Roads ({corridors.length})
           </button>
           <button
             onClick={() => handleFilterClick('express')}
@@ -199,7 +199,7 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
                 : 'bg-[#FAF9F6] text-[#686B66] hover:text-[#292B29] border border-[#DCDAD4]'
             }`}
           >
-            ⚡ Express Direct ({corridors.filter((c) => c.category === 'express').length})
+            ⚡ Express Radials ({corridors.filter((c) => c.category === 'express').length})
           </button>
           <button
             onClick={() => handleFilterClick('arterial')}
@@ -209,7 +209,17 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
                 : 'bg-[#FAF9F6] text-[#686B66] hover:text-[#292B29] border border-[#DCDAD4]'
             }`}
           >
-            🔥 Urban Arterials ({corridors.filter((c) => c.category === 'arterial').length})
+            🔥 Busy Arterials ({corridors.filter((c) => c.category === 'arterial').length})
+          </button>
+          <button
+            onClick={() => handleFilterClick('campus')}
+            className={`px-3 py-1.5 rounded-xl font-mono text-[10.5px] uppercase tracking-wider whitespace-nowrap cursor-pointer transition-all ${
+              activeFilter === 'campus'
+                ? 'bg-[#30312F] text-white font-bold shadow-xs'
+                : 'bg-[#FAF9F6] text-[#686B66] hover:text-[#292B29] border border-[#DCDAD4]'
+            }`}
+          >
+            🎓 Campus &amp; Colleges ({corridors.filter((c) => c.category === 'campus').length})
           </button>
           <button
             onClick={() => handleFilterClick('feeder')}
@@ -219,7 +229,7 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
                 : 'bg-[#FAF9F6] text-[#686B66] hover:text-[#292B29] border border-[#DCDAD4]'
             }`}
           >
-            🌿 Suburban Feeders ({corridors.filter((c) => c.category === 'feeder').length})
+            🏘️ Suburban &amp; Commuter ({corridors.filter((c) => c.category === 'feeder').length})
           </button>
         </div>
 
@@ -230,6 +240,8 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
               ? 'bolt'
               : activeFilter === 'arterial'
               ? 'alt_route'
+              : activeFilter === 'campus'
+              ? 'school'
               : activeFilter === 'feeder'
               ? 'hub'
               : 'apps'}
@@ -237,22 +249,27 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
           <span className="text-[11px]">
             {activeFilter === 'express' && (
               <>
-                <strong>Express Direct Lines:</strong> High-speed non-stop radial lines connecting major terminals with zero intermediate delay.
+                <strong>Express Radial Highways:</strong> High-speed non-stop highway radials connecting major rail terminals and city gateways with minimal transit delay.
               </>
             )}
             {activeFilter === 'arterial' && (
               <>
-                <strong>Urban Arterial Spines:</strong> Multi-stop high-capacity lines serving commercial, tech, and manufacturing clusters.
+                <strong>Busy City Arterials:</strong> Core high-traffic road spines serving Nashik's central commerce, civic offices, and central business hubs.
+              </>
+            )}
+            {activeFilter === 'campus' && (
+              <>
+                <strong>Campus &amp; Student Roads:</strong> High-frequency educational corridors linking PVG COE, KBT, KK Wagh, MET, and Sandip University.
               </>
             )}
             {activeFilter === 'feeder' && (
               <>
-                <strong>Suburban &amp; Feeder Connectors:</strong> First/last-mile suburban shuttles linking academic, heritage, and residential nodes.
+                <strong>Suburban &amp; Commuter Roads:</strong> Vital neighborhood connectors and industrial links for daily residential and shift commuters.
               </>
             )}
             {activeFilter === 'all' && (
               <>
-                <strong>Full Metro Network:</strong> 9 synchronized corridors across Nashik. Click any route card to track its live stops.
+                <strong>Busy Road Network:</strong> 19 high-demand road corridors across Nashik. Click any route card to inspect stops or book a pooled ride.
               </>
             )}
           </span>
@@ -265,7 +282,7 @@ export default function RoutesScreen({ onSelectCorridor, userRole = 'passenger' 
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#858C7B] animate-pulse"></span>
             <span className="font-mono text-xs text-[#F6F5F1] uppercase tracking-wider font-bold">
-              {userRole === 'admin' ? 'Fleet Corridor Network & Route Load Map' : 'Live Metro Transit Network'}
+              {userRole === 'admin' ? 'Road Fleet Network & Route Load Map' : 'Live Road Transit Network'}
             </span>
           </div>
           <span className="font-mono text-[10.5px] text-[#A3A69D] font-semibold">
