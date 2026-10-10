@@ -31,7 +31,7 @@ export default function Header({
   };
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 bg-[#FAF9F6]/90 backdrop-blur-md border-b border-[#DCDAD4] shadow-xs pt-safe">
+    <header className="fixed top-0 inset-x-0 z-[1100] bg-[#FAF9F6]/90 backdrop-blur-md border-b border-[#DCDAD4] shadow-xs pt-safe">
       <div className="h-14 px-4 flex items-center justify-between max-w-5xl mx-auto">
         {/* Brand & Left Navigation */}
         <div className="flex items-center gap-2">
@@ -99,73 +99,80 @@ export default function Header({
 
             {/* Profile Popover / Role Switcher Menu */}
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-64 bg-[#FAF9F6] rounded-2xl p-3 shadow-xl border border-[#DCDAD4] z-[100] animate-fade-in flex flex-col gap-3">
-                {/* User Identity */}
-                <div className="flex items-center gap-2.5 pb-2 border-b border-[#DCDAD4]">
-                  <div className="w-9 h-9 rounded-xl bg-[#858C7B] text-white flex items-center justify-center text-xs font-bold">
-                    NK
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-bold text-[#292B29] truncate">Nakul Karpe</span>
-                    <span className="text-[11px] font-mono text-[#898B84] truncate">karpenakul885</span>
-                  </div>
-                </div>
-
-                {/* Role Switcher Section */}
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#898B84] font-semibold px-1">
-                    Select Workspace Role
-                  </span>
-
-                  {/* Passenger Option */}
-                  <button
-                    onClick={() => handleRoleSelect('passenger')}
-                    className={`flex items-start gap-2.5 p-2 rounded-xl text-left transition-all cursor-pointer ${
-                      userRole === 'passenger'
-                        ? 'bg-[#E5E8DF] border border-[#858C7B]/40 text-[#292B29]'
-                        : 'hover:bg-[#F2EFEB] text-[#686B66]'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-[#52584A] mt-0.5">person</span>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-[#292B29]">Passenger Mode</span>
-                      <span className="text-[10.5px] text-[#898B84]">Request rides, routes &amp; active tracking</span>
+              <>
+                {/* Fullscreen Backdrop so tap anywhere closes popover and dims background */}
+                <div
+                  className="fixed inset-0 z-[1101] bg-black/30 backdrop-blur-[1px] animate-fade-in"
+                  onClick={() => setShowProfileMenu(false)}
+                />
+                <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-[#FAF9F6] rounded-2xl p-3 shadow-2xl border border-[#DCDAD4] z-[1102] animate-fade-in flex flex-col gap-3">
+                  {/* User Identity */}
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-[#DCDAD4]">
+                    <div className="w-9 h-9 rounded-xl bg-[#858C7B] text-white flex items-center justify-center text-xs font-bold">
+                      NK
                     </div>
-                    {userRole === 'passenger' && (
-                      <span className="material-symbols-outlined text-[16px] text-[#52584A] ml-auto">check</span>
-                    )}
-                  </button>
-
-                  {/* Admin Option */}
-                  <button
-                    onClick={() => handleRoleSelect('admin')}
-                    className={`flex items-start gap-2.5 p-2 rounded-xl text-left transition-all cursor-pointer ${
-                      userRole === 'admin'
-                        ? 'bg-[#30312F] text-[#F6F5F1] border border-[#424440]'
-                        : 'hover:bg-[#F2EFEB] text-[#686B66]'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-[#858C7B] mt-0.5">admin_panel_settings</span>
-                    <div className="flex flex-col">
-                      <span className={`text-xs font-semibold ${userRole === 'admin' ? 'text-[#F6F5F1]' : 'text-[#292B29]'}`}>
-                        Admin &amp; Dispatcher
-                      </span>
-                      <span className={`text-[10.5px] ${userRole === 'admin' ? 'text-[#A3A69D]' : 'text-[#898B84]'}`}>
-                        Fleet telemetry, stats &amp; zero-trust gate
-                      </span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-bold text-[#292B29] truncate">Nakul Karpe</span>
+                      <span className="text-[11px] font-mono text-[#898B84] truncate">karpenakul885</span>
                     </div>
-                    {userRole === 'admin' && (
-                      <span className="material-symbols-outlined text-[16px] text-[#858C7B] ml-auto">check</span>
-                    )}
-                  </button>
-                </div>
+                  </div>
 
-                {/* Footer status */}
-                <div className="pt-2 border-t border-[#DCDAD4] flex items-center justify-between text-[10px] font-mono text-[#898B84]">
-                  <span>Engine: {backendStatus}</span>
-                  <span className="text-[#52584A] font-semibold">v3.2</span>
+                  {/* Role Switcher Section */}
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#898B84] font-semibold px-1">
+                      Select Workspace Role
+                    </span>
+
+                    {/* Passenger Option */}
+                    <button
+                      onClick={() => handleRoleSelect('passenger')}
+                      className={`flex items-start gap-2.5 p-2 rounded-xl text-left transition-all cursor-pointer ${
+                        userRole === 'passenger'
+                          ? 'bg-[#E5E8DF] border border-[#858C7B]/40 text-[#292B29]'
+                          : 'hover:bg-[#F2EFEB] text-[#686B66]'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-[#52584A] mt-0.5">person</span>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold text-[#292B29]">Passenger Mode</span>
+                        <span className="text-[10.5px] text-[#898B84]">Request rides, routes &amp; active tracking</span>
+                      </div>
+                      {userRole === 'passenger' && (
+                        <span className="material-symbols-outlined text-[16px] text-[#52584A] ml-auto">check</span>
+                      )}
+                    </button>
+
+                    {/* Admin Option */}
+                    <button
+                      onClick={() => handleRoleSelect('admin')}
+                      className={`flex items-start gap-2.5 p-2 rounded-xl text-left transition-all cursor-pointer ${
+                        userRole === 'admin'
+                          ? 'bg-[#30312F] text-[#F6F5F1] border border-[#424440]'
+                          : 'hover:bg-[#F2EFEB] text-[#686B66]'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-[#858C7B] mt-0.5">admin_panel_settings</span>
+                      <div className="flex flex-col">
+                        <span className={`text-xs font-semibold ${userRole === 'admin' ? 'text-[#F6F5F1]' : 'text-[#292B29]'}`}>
+                          Admin &amp; Dispatcher
+                        </span>
+                        <span className={`text-[10.5px] ${userRole === 'admin' ? 'text-[#A3A69D]' : 'text-[#898B84]'}`}>
+                          Fleet telemetry, stats &amp; zero-trust gate
+                        </span>
+                      </div>
+                      {userRole === 'admin' && (
+                        <span className="material-symbols-outlined text-[16px] text-[#858C7B] ml-auto">check</span>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Footer status */}
+                  <div className="pt-2 border-t border-[#DCDAD4] flex items-center justify-between text-[10px] font-mono text-[#898B84]">
+                    <span>Engine: {backendStatus}</span>
+                    <span className="text-[#52584A] font-semibold">v3.2</span>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
         </div>

@@ -272,10 +272,10 @@ export default function JourneyScreen({ activeRide = null, assignedVehicle = nul
           />
 
           {/* Map Badges */}
-          <div className="absolute top-2 left-2 flex flex-col gap-1 z-[400]">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#30312F]/92 backdrop-blur-md border border-[#424440]">
-              <span className="material-symbols-outlined text-[13px] text-[#38bdf8]">hub</span>
-              <span className="font-mono text-[10px] text-[#F6F5F1] font-semibold uppercase">
+          <div className="absolute top-2 left-2 flex flex-col gap-1 z-20 pointer-events-none max-w-[calc(100%-1rem)]">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#30312F]/92 backdrop-blur-md border border-[#424440] truncate">
+              <span className="material-symbols-outlined text-[13px] text-[#38bdf8] shrink-0">hub</span>
+              <span className="font-mono text-[10px] text-[#F6F5F1] font-semibold uppercase truncate">
                 {sharedOrigin.shortName} ➔ {origin.shortName} ➔ {dest.shortName}
               </span>
             </div>
@@ -287,7 +287,7 @@ export default function JourneyScreen({ activeRide = null, assignedVehicle = nul
             </div>
           </div>
 
-          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-[#30312F]/90 border border-[#424440] z-[400]">
+          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-[#30312F]/90 border border-[#424440] z-20 pointer-events-none">
             <span className="font-mono text-[9px] text-[#A3A69D]">
               OSRM Live · Street Geometry
             </span>

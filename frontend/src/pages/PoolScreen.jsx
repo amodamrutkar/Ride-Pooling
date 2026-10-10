@@ -902,13 +902,13 @@ export default function PoolScreen({
               height="320px"
             />
             {/* Tactical Tag */}
-            <div className="absolute top-3 left-4 flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-high/90 backdrop-blur-md border border-surface-container-highest/40 z-[400]">
+            <div className="absolute top-3 left-4 flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-high/90 backdrop-blur-md border border-surface-container-highest/40 z-20 pointer-events-none">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
               <span className="font-label-mono text-[10px] tracking-wider uppercase text-on-surface font-semibold">
                 APPROACH: {sharedOriginHub.shortName} ➔ {originHub.shortName} ({approachDistanceKm} km)
               </span>
             </div>
-            <div className="absolute top-3 right-4 flex gap-1 z-[400]">
+            <div className="absolute top-3 right-4 flex gap-1 z-20 pointer-events-none">
               <div className="px-2 py-1 bg-surface-container-high/90 rounded border border-surface-container-highest/40 backdrop-blur-sm">
                 <span className="font-label-mono text-[10px] text-on-surface-variant uppercase">Diameter:</span>
                 <span className="font-label-mono text-[10px] text-primary font-semibold ml-1">0–1.5 km</span>
@@ -1077,20 +1077,20 @@ export default function PoolScreen({
               height="330px"
             />
             {/* Real-time Tags */}
-            <div className="absolute top-3 left-4 flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-lowest/90 backdrop-blur-md border border-surface-container-high/60 z-[400]">
+            <div className="absolute top-3 left-4 flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-lowest/90 backdrop-blur-md border border-surface-container-high/60 z-20 pointer-events-none">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
               <span className="font-label-mono text-label-mono text-primary uppercase tracking-wider font-semibold">
                 LIVE TELEMETRY · {currentSpeed} KM/H
               </span>
             </div>
-            <div className="absolute top-3 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-950/80 backdrop-blur-md border border-sky-400/40 z-[400]">
+            <div className="absolute top-3 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-950/80 backdrop-blur-md border border-sky-400/40 z-20 pointer-events-none">
               <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
               <span className="font-label-mono text-[10px] text-sky-200 uppercase font-semibold">
                 DIAMETER: 0–1.5 KM ({approachDistanceKm} KM)
               </span>
             </div>
-            <div className="absolute bottom-3 left-4 px-2.5 py-1 rounded bg-surface-container-high/90 backdrop-blur-md border border-surface-container-highest/40 z-[400]">
-              <span className="font-label-mono text-[10px] text-on-surface uppercase font-semibold">
+            <div className="absolute bottom-3 left-4 max-w-[calc(100%-2rem)] px-2.5 py-1 rounded bg-surface-container-high/90 backdrop-blur-md border border-surface-container-highest/40 z-20 pointer-events-none truncate">
+              <span className="font-label-mono text-[10px] text-on-surface uppercase font-semibold truncate block">
                 {sharedOriginHub.shortName} ➔ {originHub.shortName} ➔ {destHub.shortName}
               </span>
             </div>
