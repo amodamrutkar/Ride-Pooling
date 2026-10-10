@@ -320,33 +320,44 @@ export default function App() {
             </div>
 
             {/* Modal Navigation Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-surface-container-high pb-2.5 pt-1">
-              {[
-                { id: 'controls', label: 'Controls' },
-                { id: 'gate', label: 'USP 1 · Trust Gate' },
-                { id: 'diff', label: 'USP 2 · Route Diff' },
-                { id: 'traffic', label: 'Traffic' },
-                { id: 'distance', label: 'Distance' },
-                { id: 'alerts', label: 'GPS Alerts' },
-                { id: 'arena', label: 'Arena' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveModalTab(tab.id)}
-                  className={`px-3 py-1.5 rounded-xl font-label-mono text-[11px] uppercase tracking-wider transition-all cursor-pointer shrink-0 font-semibold flex items-center gap-1.5 ${
-                    activeModalTab === tab.id
-                      ? 'bg-primary text-on-primary shadow-xs ring-1 ring-primary/40'
-                      : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
-                  }`}
-                >
-                  {(tab.id === 'gate' || tab.id === 'diff') && (
-                    <span className={`w-1.5 h-1.5 rounded-full ${
-                      activeModalTab === tab.id ? 'bg-white' : tab.id === 'gate' ? 'bg-primary' : 'bg-[#38bdf8]'
-                    }`} />
-                  )}
-                  <span>{tab.label}</span>
-                </button>
-              ))}
+            <div className="w-full border-b border-surface-container-high pb-1">
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 px-1">
+                {[
+                  { id: 'controls', label: 'Controls' },
+                  { id: 'gate', label: 'USP 1 · Trust Gate' },
+                  { id: 'diff', label: 'USP 2 · Route Diff' },
+                  { id: 'traffic', label: 'Traffic' },
+                  { id: 'distance', label: 'Distance' },
+                  { id: 'alerts', label: 'GPS Alerts' },
+                  { id: 'arena', label: 'Arena' }
+                ].map((tab) => {
+                  const isActive = activeModalTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveModalTab(tab.id)}
+                      className={`h-9 px-3.5 rounded-full font-label-mono text-[11px] uppercase tracking-wider transition-all cursor-pointer shrink-0 font-semibold inline-flex items-center gap-2 select-none ${
+                        isActive
+                          ? 'bg-primary text-on-primary shadow-sm ring-1 ring-primary/40'
+                          : 'bg-surface-container-high/60 border border-surface-container-highest/60 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
+                      }`}
+                    >
+                      {(tab.id === 'gate' || tab.id === 'diff') && (
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            isActive
+                              ? 'bg-white'
+                              : tab.id === 'gate'
+                              ? 'bg-primary'
+                              : 'bg-[#38bdf8]'
+                          }`}
+                        />
+                      )}
+                      <span className="whitespace-nowrap leading-none">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* TAB 1: CONTROLS */}
