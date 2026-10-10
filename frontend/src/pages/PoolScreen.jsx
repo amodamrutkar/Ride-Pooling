@@ -831,7 +831,7 @@ export default function PoolScreen({
                 id="request-pool-btn"
                 onClick={() => {
                   setPoolStage('matching');
-                  if (onRequestRide) onRequestRide({ origin: originHub, dest: destHub, soloFare, pooledFare: dynamicPoolPrice });
+                  if (onRequestRide) onRequestRide({ origin: originHub, dest: destHub, sharedOrigin: sharedOriginHub, soloFare, pooledFare: dynamicPoolPrice });
                 }}
                 className="w-full h-12 bg-primary-container hover:bg-primary active:scale-[0.99] text-on-primary font-body-md text-body-md font-semibold rounded-lg flex items-center justify-center transition-all cursor-pointer shadow-lg shadow-primary-container/20 mt-1"
               >
@@ -852,7 +852,7 @@ export default function PoolScreen({
             <div className="flex items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse"></span>
               <span className="font-label-mono text-label-mono uppercase tracking-wider text-on-surface-variant">
-                Batch Engine v2.4
+                Batch Engine v2.4 · Shared Pool
               </span>
             </div>
             <span className="font-label-mono text-label-mono text-primary font-semibold">
@@ -864,6 +864,8 @@ export default function PoolScreen({
           <div className="relative w-full h-[320px] bg-surface-container-lowest overflow-hidden border-b border-surface-container-high/40">
             <LeafletMap
               center={[originHub.lat, originHub.lon]}
+              sharedOrigin={sharedOriginHub}
+              approachRouteCoords={approachRouteCoords}
               pickup={originHub}
               drop={destHub}
               showRadar={true}
@@ -875,7 +877,7 @@ export default function PoolScreen({
             <div className="absolute top-3 left-4 flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-high/90 backdrop-blur-md border border-surface-container-highest/40 z-[400]">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
               <span className="font-label-mono text-[10px] tracking-wider uppercase text-on-surface font-semibold">
-                PICKUP LOCK {originHub.lat.toFixed(4)}° N
+                APPROACH: {sharedOriginHub.shortName} ➔ {originHub.shortName}
               </span>
             </div>
             <div className="absolute top-3 right-4 flex gap-1 z-[400]">
@@ -915,7 +917,7 @@ export default function PoolScreen({
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center justify-between">
                   <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">
-                    Matching with nearby riders
+                    Matching with shared co-riders
                   </h2>
                   <div className="flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
@@ -924,48 +926,59 @@ export default function PoolScreen({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-body-sm text-body-sm text-on-surface-variant">
-                    Optimizing co-riders along route
+                    Merging path from {sharedOriginHub.shortName}
                   </span>
                   <span className="text-on-surface-variant text-[10px]">•</span>
                   <span className="font-label-mono text-label-mono text-primary font-semibold">
-                    {queueCount} riders in queue
+                    {queueCount} riders in pool
                   </span>
                 </div>
               </div>
 
               <div className="w-full h-px bg-surface-variant"></div>
 
-              {/* Waypoints timeline */}
+              {/* Waypoints timeline: 3 stops representing shared ride */}
               <div className="flex items-start gap-3 py-1">
                 <div className="flex flex-col items-center mt-1">
-                  <div className="w-2.5 h-2.5 rounded-full bg-transparent p-0.5 flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-primary"></div>
-                  </div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#38bdf8] flex items-center justify-center"></div>
+                  <div className="w-[1px] h-6 bg-surface-variant my-0.5"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-primary flex items-center justify-center"></div>
                   <div className="w-[1px] h-6 bg-surface-variant my-0.5"></div>
                   <div className="w-2 h-2 rounded-none bg-on-surface"></div>
                 </div>
                 <div className="flex flex-col gap-2 flex-1 min-w-0">
                   <div className="flex items-center justify-between min-w-0">
                     <div className="flex flex-col min-w-0">
-                      <span className="font-label-mono text-[10px] uppercase tracking-wider text-on-surface-variant">
-                        Pickup
+                      <span className="font-label-mono text-[9px] uppercase tracking-wider text-[#38bdf8] font-bold">
+                        1. Inbound Co-Rider
                       </span>
-                      <span className="font-body-md text-body-md text-on-surface font-medium truncate">
-                        {originHub.shortName}
+                      <span className="font-body-md text-xs text-on-surface font-medium truncate">
+                        {sharedOriginHub.shortName}
                       </span>
                     </div>
-                    <span className="font-label-mono text-label-mono text-on-surface-variant">Terminal 2</span>
+                    <span className="font-label-mono text-[10px] text-on-surface-variant">Boarded</span>
                   </div>
                   <div className="flex items-center justify-between min-w-0">
                     <div className="flex flex-col min-w-0">
-                      <span className="font-label-mono text-[10px] uppercase tracking-wider text-on-surface-variant">
-                        Drop
+                      <span className="font-label-mono text-[9px] uppercase tracking-wider text-primary font-bold">
+                        2. Your Pickup
                       </span>
-                      <span className="font-body-md text-body-md text-on-surface font-medium truncate">
+                      <span className="font-body-md text-xs text-on-surface font-bold truncate">
+                        {originHub.shortName}
+                      </span>
+                    </div>
+                    <span className="font-label-mono text-[10px] text-primary font-semibold">Next Stop</span>
+                  </div>
+                  <div className="flex items-center justify-between min-w-0">
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-label-mono text-[9px] uppercase tracking-wider text-on-surface-variant font-bold">
+                        3. Dropoff
+                      </span>
+                      <span className="font-body-md text-xs text-on-surface font-medium truncate">
                         {destHub.shortName}
                       </span>
                     </div>
-                    <span className="font-label-mono text-label-mono text-on-surface-variant">{tripDistance} km</span>
+                    <span className="font-label-mono text-[10px] text-on-surface-variant">{tripDistance} km</span>
                   </div>
                 </div>
               </div>

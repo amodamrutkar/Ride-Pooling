@@ -151,7 +151,7 @@ export default function App() {
     }
   };
 
-  const handleRequestRide = async ({ origin, dest, soloFare, pooledFare }) => {
+  const handleRequestRide = async ({ origin, dest, sharedOrigin, soloFare, pooledFare }) => {
     const res = await submitRideRequest({
       pickup: origin,
       drop: dest,
@@ -162,6 +162,7 @@ export default function App() {
         id: res.id,
         origin,
         dest,
+        sharedOrigin,
         soloFare,
         pooledFare
       });
