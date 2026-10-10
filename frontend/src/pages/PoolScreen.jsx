@@ -4,7 +4,7 @@ import ZeroTrustGate from '../components/ZeroTrustGate';
 import RouteDiffView from '../components/RouteDiffView';
 import { fetchRoadRoute, getAccurateDistance } from '../utils/routing';
 import { runDispatch } from '../utils/api';
-import { NASHIK_HUBS } from '../data/nashikLocations';
+import { NASHIK_HUBS, getSharedRideOrigin } from '../data/nashikLocations';
 
 export default function PoolScreen({
   poolStage,
@@ -223,7 +223,48 @@ export default function PoolScreen({
 
   const destHub = NASHIK_HUBS[destIndex] || NASHIK_HUBS[2];
 
-  // Real OSRM Road Geometry (Google Maps-like street turn-by-turn polyline)
+  // Upstream Shared Ride Origin: Where the vehicle is coming from with an existing co-rider
+  const sharedOriginHub = useMemo(() => {
+    return getSharedRideOrigin(originHub, destHub);
+  }, [originHub, destHub]);
+
+  // Real OSRM Approach Geometry: Route from shared origin to user's pickup
+  const [approachRoadRoute, setApproachRoadRoute] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadApproachPath() {
+      if (!sharedOriginHub || !originHub) return;
+      const res = await fetchRoadRoute(sharedOriginHub, originHub);
+      if (mounted && res && res.polyline) {
+        setApproachRoadRoute(res);
+      }
+    }
+    loadApproachPath();
+    return () => {
+      mounted = false;
+    };
+  }, [sharedOriginHub, originHub]);
+
+  const approachRouteCoords = useMemo(() => {
+    if (approachRoadRoute && approachRoadRoute.polyline && approachRoadRoute.polyline.length > 1) {
+      return approachRoadRoute.polyline;
+    }
+    if (!sharedOriginHub || !originHub) return [];
+    const coords = [];
+    const steps = 12;
+    for (let i = 0; i <= steps; i++) {
+      const frac = i / steps;
+      const curveOffset = Math.sin(frac * Math.PI) * 0.005 * (i % 2 === 0 ? 1 : -0.6);
+      coords.push([
+        sharedOriginHub.lat + (originHub.lat - sharedOriginHub.lat) * frac + curveOffset,
+        sharedOriginHub.lon + (originHub.lon - sharedOriginHub.lon) * frac - curveOffset
+      ]);
+    }
+    return coords;
+  }, [approachRoadRoute, sharedOriginHub, originHub]);
+
+  // Real OSRM Road Geometry (Google Maps-like street turn-by-turn polyline for user's trip)
   const [roadRoute, setRoadRoute] = useState(null);
   const [loadingRoute, setLoadingRoute] = useState(false);
 
@@ -332,31 +373,47 @@ export default function PoolScreen({
     return () => clearInterval(timer);
   }, [poolStage, setPoolStage]);
 
-  // Active ride live vehicle progression & ticking ETA (visibly moves every 2 seconds along road)
+  // Active ride live vehicle progression & ticking ETA
+  // Since it's a shared ride, vehicle approaches along approachRouteCoords from shared origin to user pickup
   const [vehicleIdx, setVehicleIdx] = useState(0);
   const [etaSeconds, setEtaSeconds] = useState(157); // 2:37 ETA
   const [currentSpeed, setCurrentSpeed] = useState(28);
 
   useEffect(() => {
-    if (poolStage !== 'active') return;
+    if (poolStage !== 'active') {
+      setVehicleIdx(0);
+      setEtaSeconds(157);
+      return;
+    }
     const timer = setInterval(() => {
       setVehicleIdx((prev) => {
-        const step = Math.max(1, Math.floor(activeRouteCoords.length / 14));
-        return (prev + step) % activeRouteCoords.length;
+        const totalSteps = approachRouteCoords.length > 0 ? approachRouteCoords.length : 12;
+        const step = Math.max(1, Math.floor(totalSteps / 10));
+        return (prev + step) % totalSteps;
       });
       setEtaSeconds((prev) => (prev > 12 ? prev - 2 : 157));
       setCurrentSpeed(Math.floor(28 + Math.random() * 8));
     }, 2000);
     return () => clearInterval(timer);
-  }, [poolStage, activeRouteCoords.length]);
+  }, [poolStage, approachRouteCoords.length]);
 
   const currentVehicleCoord = useMemo(() => {
-    if (activeRouteCoords && activeRouteCoords.length > 0) {
-      const safeIdx = vehicleIdx % activeRouteCoords.length;
-      return { lat: activeRouteCoords[safeIdx][0], lon: activeRouteCoords[safeIdx][1] };
+    if (approachRouteCoords && approachRouteCoords.length > 0) {
+      const safeIdx = vehicleIdx % approachRouteCoords.length;
+      return {
+        lat: approachRouteCoords[safeIdx][0],
+        lon: approachRouteCoords[safeIdx][1],
+        isApproaching: true,
+        label: `Vehicle V1 · En Route from ${sharedOriginHub.shortName}`
+      };
     }
-    return { lat: originHub.lat, lon: originHub.lon };
-  }, [activeRouteCoords, vehicleIdx, originHub]);
+    return {
+      lat: sharedOriginHub ? sharedOriginHub.lat : originHub.lat,
+      lon: sharedOriginHub ? sharedOriginHub.lon : originHub.lon,
+      isApproaching: true,
+      label: 'Vehicle V1 · Approaching Pickup'
+    };
+  }, [approachRouteCoords, vehicleIdx, sharedOriginHub, originHub]);
 
   const formatEta = (secs) => {
     const m = Math.floor(secs / 60);
@@ -597,108 +654,6 @@ export default function PoolScreen({
                   Drop
                 </span>
               </div>
-            </div>
-
-            {/* Quick Location Selection Pills */}
-            <div className="flex items-center gap-1.5 pt-0.5 overflow-x-auto no-scrollbar">
-              <span className="font-label-mono text-[9px] uppercase tracking-wider text-outline shrink-0 font-bold">
-                QUICK PICK:
-              </span>
-              <button
-                type="button"
-                onClick={selectPvgAsPickup}
-                className={`px-2.5 py-1 rounded-full font-mono text-[10.5px] font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
-                  originHub.id === 'pvg_coe'
-                    ? 'bg-[#52584A] text-[#FAF9F6] border-[#52584A]'
-                    : 'bg-surface-container-high hover:bg-surface-container-highest text-on-surface border-surface-container-highest/80'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse"></span>
-                <span>📍 PVG Nashik</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const idx = NASHIK_HUBS.findIndex(h => h.id === 'college_rd');
-                  if (idx !== -1) {
-                    setOriginIndex(idx);
-                    setUseLiveLocation(false);
-                    localStorage.setItem('pooliq_preferred_hub', 'college_rd');
-                  }
-                }}
-                className={`px-2 py-1 rounded-full font-mono text-[10px] font-medium shrink-0 transition-all cursor-pointer border ${
-                  originHub.id === 'college_rd'
-                    ? 'bg-[#52584A] text-[#FAF9F6] border-[#52584A]'
-                    : 'bg-surface-container-high hover:bg-surface-container-highest text-on-surface border-surface-container-highest/60'
-                }`}
-              >
-                🎓 College Rd
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const idx = NASHIK_HUBS.findIndex(h => h.id === 'gangapur_rd');
-                  if (idx !== -1) {
-                    setOriginIndex(idx);
-                    setUseLiveLocation(false);
-                    localStorage.setItem('pooliq_preferred_hub', 'gangapur_rd');
-                  }
-                }}
-                className={`px-2 py-1 rounded-full font-mono text-[10px] font-medium shrink-0 transition-all cursor-pointer border ${
-                  originHub.id === 'gangapur_rd'
-                    ? 'bg-[#52584A] text-[#FAF9F6] border-[#52584A]'
-                    : 'bg-surface-container-high hover:bg-surface-container-highest text-on-surface border-surface-container-highest/60'
-                }`}
-              >
-                🌿 Gangapur Rd
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const idx = NASHIK_HUBS.findIndex(h => h.id === 'cbs');
-                  if (idx !== -1) {
-                    setOriginIndex(idx);
-                    setUseLiveLocation(false);
-                    localStorage.setItem('pooliq_preferred_hub', 'cbs');
-                  }
-                }}
-                className={`px-2 py-1 rounded-full font-mono text-[10px] font-medium shrink-0 transition-all cursor-pointer border ${
-                  originHub.id === 'cbs'
-                    ? 'bg-[#52584A] text-[#FAF9F6] border-[#52584A]'
-                    : 'bg-surface-container-high hover:bg-surface-container-highest text-on-surface border-surface-container-highest/60'
-                }`}
-              >
-                🏛️ CBS Chowk
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const idx = NASHIK_HUBS.findIndex(h => h.id === 'nashik_road');
-                  if (idx !== -1) {
-                    setOriginIndex(idx);
-                    setUseLiveLocation(false);
-                    localStorage.setItem('pooliq_preferred_hub', 'nashik_road');
-                  }
-                }}
-                className={`px-2 py-1 rounded-full font-mono text-[10px] font-medium shrink-0 transition-all cursor-pointer border ${
-                  originHub.id === 'nashik_road'
-                    ? 'bg-[#52584A] text-[#FAF9F6] border-[#52584A]'
-                    : 'bg-surface-container-high hover:bg-surface-container-highest text-on-surface border-surface-container-highest/60'
-                }`}
-              >
-                🚆 Nashik Rd
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchModalType('pickup');
-                  setSearchQuery('');
-                }}
-                className="px-2 py-1 rounded-full font-mono text-[10px] font-semibold text-primary bg-primary/10 hover:bg-primary/20 shrink-0 transition-all cursor-pointer flex items-center gap-1 border border-primary/20"
-              >
-                <span className="material-symbols-outlined text-[13px]">search</span>
-                <span>Search Hubs</span>
-              </button>
             </div>
           </div>
 
@@ -1072,6 +1027,8 @@ export default function PoolScreen({
           <div className="relative w-full h-[330px] bg-surface-container-lowest overflow-hidden border-b border-surface-container-high/40">
             <LeafletMap
               center={[currentVehicleCoord.lat, currentVehicleCoord.lon]}
+              sharedOrigin={sharedOriginHub}
+              approachRouteCoords={approachRouteCoords}
               pickup={originHub}
               drop={destHub}
               routeCoords={activeRouteCoords}
@@ -1087,7 +1044,7 @@ export default function PoolScreen({
             </div>
             <div className="absolute bottom-3 left-4 px-2.5 py-1 rounded bg-surface-container-high/90 backdrop-blur-md border border-surface-container-highest/40 z-[400]">
               <span className="font-label-mono text-[10px] text-on-surface uppercase font-semibold">
-                {originHub.shortName} ➔ {destHub.shortName}
+                {sharedOriginHub.shortName} ➔ {originHub.shortName} ➔ {destHub.shortName}
               </span>
             </div>
           </div>
@@ -1099,11 +1056,16 @@ export default function PoolScreen({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                  <span className="font-body-lg text-body-md text-on-surface font-medium">
-                    Vehicle {assignedVehicle ? assignedVehicle.id : 'V1'} arriving
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="font-body-lg text-body-md text-on-surface font-semibold">
+                      Vehicle {assignedVehicle ? assignedVehicle.id : 'V1'} arriving
+                    </span>
+                    <span className="text-[11px] font-mono text-primary font-medium">
+                      Shared Pool · Approaching from {sharedOriginHub.shortName} (Co-rider 1 onboard)
+                    </span>
+                  </div>
                 </div>
-                <div className="px-2.5 py-0.5 rounded bg-surface-container-high border border-surface-container-highest/60">
+                <div className="px-2.5 py-0.5 rounded bg-surface-container-high border border-surface-container-highest/60 shrink-0">
                   <span className="font-label-mono text-label-mono text-primary font-semibold tracking-wider">
                     {formatEta(etaSeconds)}
                   </span>

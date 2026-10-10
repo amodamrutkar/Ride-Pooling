@@ -6,6 +6,8 @@ export default function LeafletMap({
   zoom = 13,
   pickup = null,
   drop = null,
+  sharedOrigin = null,
+  approachRouteCoords = [],
   routeCoords = [],
   vehicleCoord = null,
   corridors = [],
@@ -306,6 +308,45 @@ export default function LeafletMap({
     }
 
     // ─────────────────────────────────────────────────────────────
+    // 3.5 APPROACH ROUTE (Vehicle Approach from Co-Rider Upstream Node)
+    // ─────────────────────────────────────────────────────────────
+    if (approachRouteCoords && approachRouteCoords.length > 1) {
+      addLayer(
+        L.polyline(approachRouteCoords, {
+          color: '#38bdf8',
+          weight: 4.5,
+          opacity: 0.9,
+          dashArray: '8, 6',
+          lineCap: 'round',
+          lineJoin: 'round'
+        })
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 3.6 SHARED ORIGIN MARKER (Upstream Co-Rider Node)
+    // ─────────────────────────────────────────────────────────────
+    if (sharedOrigin) {
+      const sharedName = sharedOrigin.shortName || sharedOrigin.name || 'Co-Rider Stop';
+      const sharedIcon = L.divIcon({
+        className: 'custom-shared-node',
+        html: `
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="position: relative; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: #38bdf8; border: 2px solid #131318; box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);"></div>
+            </div>
+            <div style="background: rgba(19, 19, 24, 0.94); border: 1.5px solid #38bdf8; color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-family: Inter, sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.6); backdrop-filter: blur(6px);">
+              CO-RIDER 1 BOARDED: ${sharedName}
+            </div>
+          </div>
+        `,
+        iconSize: [190, 22],
+        iconAnchor: [11, 11]
+      });
+      addLayer(L.marker([sharedOrigin.lat, sharedOrigin.lon], { icon: sharedIcon }));
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // 4. ACTIVE ROUTE / POLYLINE
     // ─────────────────────────────────────────────────────────────
     if (!diffPolyline && routeCoords && routeCoords.length > 1) {
@@ -318,11 +359,16 @@ export default function LeafletMap({
           lineJoin: 'round'
         })
       );
-      const routeKey = `${pickup?.lat},${pickup?.lon}->${drop?.lat},${drop?.lon}-${routeCoords.length}`;
+      const routeKey = `${sharedOrigin?.id || 'none'}-${pickup?.lat},${pickup?.lon}->${drop?.lat},${drop?.lon}-${routeCoords.length}`;
       if (lastRouteKeyRef.current !== routeKey) {
         lastRouteKeyRef.current = routeKey;
         try {
-          map.fitBounds(poly.getBounds(), { padding: [50, 50], maxZoom: 15 });
+          if (approachRouteCoords && approachRouteCoords.length > 1) {
+            const allPoints = [...approachRouteCoords, ...routeCoords];
+            map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 15 });
+          } else {
+            map.fitBounds(poly.getBounds(), { padding: [50, 50], maxZoom: 15 });
+          }
         } catch (e) {}
       }
     } else if (!diffPolyline && pickup && drop && (!routeCoords || routeCoords.length <= 1)) {
@@ -429,6 +475,7 @@ export default function LeafletMap({
     // 7. REAL-TIME VEHICLE MARKER with live badge
     // ─────────────────────────────────────────────────────────────
     if (vehicleCoord) {
+      const vehLabel = vehicleCoord.label || (vehicleCoord.isApproaching ? 'Vehicle V1 · Approaching Pickup' : 'Vehicle V1 · En Route');
       const vehicleIcon = L.divIcon({
         className: 'custom-vehicle-moving-node',
         html: `
@@ -440,17 +487,17 @@ export default function LeafletMap({
               </div>
             </div>
             <div style="background: rgba(19, 19, 24, 0.94); border: 1.5px solid #0ED4A8; color: #49f1c3; padding: 3px 8px; border-radius: 6px; font-family: Inter, sans-serif; font-size: 11px; font-weight: 700; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.6); backdrop-filter: blur(6px);">
-              Vehicle V1 · En Route
+              ${vehLabel}
             </div>
           </div>
         `,
-        iconSize: [160, 34],
+        iconSize: [180, 34],
         iconAnchor: [17, 17]
       });
       addLayer(L.marker([vehicleCoord.lat, vehicleCoord.lon], { icon: vehicleIcon }));
     }
 
-  }, [center, zoom, pickup, drop, routeCoords, vehicleCoord, corridors, selectedCorridorId, fleetVehicles, selectedVehicleId, diffPolyline, diffMode, showRadar, radarCoords, searchRadiusMeters]);
+  }, [center, zoom, pickup, drop, sharedOrigin, approachRouteCoords, routeCoords, vehicleCoord, corridors, selectedCorridorId, fleetVehicles, selectedVehicleId, diffPolyline, diffMode, showRadar, radarCoords, searchRadiusMeters]);
 
   return (
     <div className={`relative w-full overflow-hidden ${className}`} style={{ height: height || '100%' }}>
