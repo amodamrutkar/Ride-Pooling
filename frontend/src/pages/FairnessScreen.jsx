@@ -182,18 +182,13 @@ export default function FairnessScreen() {
         </div>
 
         {/* Carbon stats row */}
-        <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#F2EFEB] border border-[#DCDAD4] text-center">
+        <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F2EFEB] border border-[#DCDAD4] text-center">
           <div className="flex flex-col items-center">
             <span className="font-mono text-[10px] text-[#898B84]">CO₂ Offset</span>
             <span className="text-base font-bold text-[#52584A] font-mono mt-0.5">38.4 kg</span>
             <span className="text-[10px] text-[#686B66]">This Month</span>
           </div>
-          <div className="flex flex-col items-center border-x border-[#DCDAD4]">
-            <span className="font-mono text-[10px] text-[#898B84]">Saplings Fund</span>
-            <span className="text-base font-bold text-[#292B29] font-mono mt-0.5">4 Trees</span>
-            <span className="text-[10px] text-[#686B66]">Godavari Basin</span>
-          </div>
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center border-l border-[#DCDAD4]">
             <span className="font-mono text-[10px] text-[#898B84]">City Rank</span>
             <span className="text-base font-bold text-[#292B29] font-mono mt-0.5">#42</span>
             <span className="text-[10px] text-[#686B66]">Nashik West</span>
